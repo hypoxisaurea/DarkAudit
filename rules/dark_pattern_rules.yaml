@@ -1,0 +1,588 @@
+## =============================================================================
+##  DarkAudit — Financial Dark Pattern Rule Base
+##  v0.2.0 — 금융위원회·금융감독원 원문 가이드라인 기반 전면 개정
+##
+##  Source : 「온라인 금융상품 판매 관련 다크패턴 가이드라인」 (2025.12, 금융위·금감원)
+##           4개 범주 · 15개 세부 유형 / 2026.04 본격 시행
+##  Owner  : Team B (DA/DE)
+##
+##  v0.1.0 → v0.2.0 주요 변경
+##   - 유형명 15개 전부 원문 표기로 정정
+##   - standalone_sufficient 신설: 단독 위험 판정 가능 여부 (원문 근거)
+##   - combination_amplifiers 신설: 결합 시 위험 증폭 유형
+##   - mitigating_checks 신설: 충족 시 위험도 하향하는 요건
+##   - legal_basis 신설: 원문이 명시한 관련 법령
+##   - DA-14 판정 기준 전면 수정 (표시 자체 → 근거 없는 표시)
+##   - DA-04 범위 확대 (유료 부가서비스 → 모든 선택항목 사전선택)
+##   - DA-06 판정 기준 구체화 (화면 수 → 클릭 수 비교, 원문 명시)
+##   - DA-09 전체선택/전체취소 부재 체크 추가
+##   - DA-15 완화 요건(변동 고지·이율 범위 표시) 추가
+##
+##  Note : official_definition은 가이드라인 취지를 요약한 내부 탐지용 기술이며
+##         법적 판단 기준이 아니다. 최종 판단은 Human Review.
+## =============================================================================
+
+meta:
+  version: "0.2.0"
+  rule_count: 15
+  label_prefix: "DA"
+
+  source:
+    authority: "금융위원회 · 금융감독원"
+    document: "온라인 금융상품 판매 관련 다크패턴 가이드라인"
+    published: "2025-12"
+    effective: "2026-04"
+    scope_lifecycle: ["광고", "계약체결", "유지", "해지"]
+    applies_to:
+      - "금소법상 금융상품판매업자"
+      - "금소법상 금융상품자문업자"
+      - "금소법 관련 혁신금융서비스 지정 핀테크업자"
+      - "금융회사와 연계·대리하여 광고·권유하는 온라인 플랫폼"
+    applies_beyond_products: "금융상품 계약뿐 아니라 금융서비스 이용을 위한 플랫폼 가입 과정 포함"
+
+  ## 원문이 전제하는 소비자상 — 평가 강도의 기준선
+  ## 정보가 주어지면 스스로 합리적 판단이 가능한 '평균적 소비자'가 아니라,
+  ## 숙고 없이 빠르게 결단하고 쉽게 포기하며 인터페이스 디자인에 따른
+  ## 인지 편향에 강하게 영향받는 '디지털 취약 소비자'를 전제한다.
+  ## → 경계 사례는 관대하게가 아니라 보수적으로 판정한다.
+  assumed_consumer_model: "digital_vulnerable"
+
+  ## severity 산출 정책
+  ## standalone_sufficient: false 인 유형은 단독 탐지 시 HIGH를 부여하지 않는다.
+  ## 원문이 "행위 자체로는 문제되지 않으나 다른 행위와 결합할 때 문제"라고
+  ## 명시한 유형이 존재하기 때문이다.
+  severity_policy:
+    standalone_true:
+      base: HIGH
+      note: "단독으로 위험 후보 판정 가능"
+    standalone_false:
+      base: REVIEW
+      escalate_to: HIGH
+      condition: "동일 화면 또는 동일 Flow에서 combination_amplifiers 중 1개 이상 동시 탐지"
+      note: "단독 탐지 시 HIGH 금지 — 오탐의 주요 원인"
+    mitigated:
+      action: "severity 1단계 하향"
+      condition: "mitigating_checks 전부 충족"
+
+## detection_scope
+##   single_screen : 화면 1장으로 관찰 가능
+##   multi_screen  : 화면 시퀀스(Flow) 비교 필요
+##   dual_flow     : 서로 다른 Flow 2종(가입 vs 해지) 대조 필요
+##
+## mvp_priority : P0(MVP 필수) / P1(우선 확대) / P2(연동 이후)
+
+categories:
+  MISLEADING:
+    ko: "오도형"
+    definition: "거짓을 알리거나 통상적 기대와 전혀 다르게 화면·문장을 구성해 금융소비자의 착각·실수를 유도하는 행위"
+    rule_count: 5
+  OBSTRUCTION:
+    ko: "방해형"
+    definition: "의사결정에 필요한 정보 수집·분석에 과도한 시간·노력·비용이 들게 만들어 합리적 선택을 포기하도록 유도하는 행위"
+    rule_count: 4
+  PRESSURE:
+    ko: "압박형"
+    definition: "금융소비자에게 심리적 압박을 가해 특정 행위를 하거나 하지 않도록 유도하는 행위"
+    rule_count: 5
+  EXPLOITATION:
+    ko: "편취유도형"
+    definition: "금융소비자가 알아채기 어려운 인터페이스의 작은 조작을 통해 비합리적이거나 예상하지 못한 지출을 유도하는 행위"
+    rule_count: 1
+
+rules:
+
+  # ================================================================ 오도형 (5)
+
+  - rule_id: "DA-01"
+    category: MISLEADING
+    official_no: "오도형 ①"
+    official_name_ko: "설명절차의 과도한 축약"
+    official_definition: "설명 절차 과정에서 하나 이상의 단계를 제거해 금융소비자가 특정 사항을 오인하도록 하고 결국 원하지 않는 의사결정을 내리도록 유도하는 행위"
+    detection_scope: multi_screen
+    mvp_priority: P2
+    standalone_sufficient: true
+    legal_basis:
+      - "금융소비자보호법 제19조 제1항"
+      - "온라인 설명의무 가이드라인 — 설명화면 구성 / 이해여부 확인"
+    observable_features: [screen_count, confirm_page, consent_control, answer_option_count]
+    deterministic_checks:
+      - id: missing_confirm_step
+        desc: "'확인 페이지' 등 상품유형별 필수 단계가 Flow에 존재하지 않음"
+      - id: bundled_understanding_check
+        desc: "개별 이해확인 절차 없이 일괄 확인 컨트롤 하나로 갈음"
+      - id: unified_answer_option
+        desc: "이해여부 확인의 답변 선택지가 일원화되어 개별 응답이 불가"
+    semantic_checks:
+      - "생략된 단계가 금소법 제19조 제1항의 중요한 사항에 해당하는지"
+      - "축약된 설명이 원 설명의 핵심 위험을 보존하는지"
+    mitigating_checks: []
+    combination_amplifiers: []
+    required_evidence: [screen_sequence, consent_element, notice_element]
+    official_examples:
+      - "확인 페이지 등 하나 이상의 단계를 축약해 부주의한 의사결정을 유도"
+      - "투자성 상품 권유 시 개별 이해확인을 생략하고 일괄 확인으로 처리"
+
+  - rule_id: "DA-02"
+    category: MISLEADING
+    official_no: "오도형 ②"
+    official_name_ko: "속임수 질문"
+    official_definition: "금융소비자가 의도하지 않은 대답이나 선택을 하도록 속임수를 써서 질문하거나, 매우 주의 깊게 보아야만 정확히 알 수 있는 내용을 묻는 행위"
+    detection_scope: single_screen
+    mvp_priority: P1
+    standalone_sufficient: true
+    legal_basis: []
+    observable_features: [modal, question_text, button_label_pair, negation_count, clause_count]
+    deterministic_checks:
+      - id: double_barrel_question
+        desc: "하나의 질문에 2가지 이상의 판단 대상이 포함 (원문 핵심 예시)"
+      - id: double_negation
+        desc: "질문문 내 부정어 2회 이상"
+      - id: label_question_mismatch
+        desc: "질문의 주어와 버튼 라벨이 대응하지 않음 (예: 중단 여부를 묻고 '아니요/좋아요' 제시)"
+    semantic_checks:
+      - "질문이 하나의 명확한 뜻을 갖는지 (원문 준수사항)"
+      - "버튼을 눌렀을 때의 결과를 라벨에서 직관적으로 예측할 수 있는지"
+      - "복잡·모호한 구성에 정당한 사유가 있는지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-03", "DA-06"]
+    required_evidence: [question_text, button_labels, modal_context]
+    official_examples:
+      - "카드 신청 중단 시 '정말 카드 신청을 중단할까요?' 팝업에 '아니요/좋아요' 버튼을 제시해 무엇에 대한 응답인지 알기 어려운 경우"
+
+  - rule_id: "DA-03"
+    category: MISLEADING
+    official_no: "오도형 ③"
+    official_name_ko: "잘못된 계층구조"
+    official_definition: "금융소비자에게 불리하거나 사업자에게 유리한 선택 항목을 시각적으로 두드러지게 표시해 자유로운 선택 또는 결정 능력을 왜곡하는 행위"
+    detection_scope: single_screen
+    mvp_priority: P0
+    standalone_sufficient: true
+    legal_basis: []
+    observable_features: [button, area_ratio, contrast_ratio, font_size_ratio, color, position, optional_consent_flag]
+    deterministic_checks:
+      - id: area_ratio
+        desc: "대립 선택지 간 면적비"
+        threshold: ">= 1.5"
+      - id: color_prominence_gap
+        desc: "한쪽은 짙은 solid fill, 반대쪽은 배경과 동일·유사 색상으로 처리 (원문 예시)"
+      - id: font_size_ratio
+        desc: "라벨 폰트 크기비"
+        threshold: ">= 1.3"
+      - id: dismiss_control_suppressed
+        desc: "닫기(X)·취소가 화면 구석에 작고 연하게 배치되고 동의 버튼은 크게 배치"
+      - id: optional_looks_mandatory
+        desc: "광고성 정보 수신·개인정보 이용 등 선택 항목이 필수처럼 표시 (원문이 명시한 포함 행위)"
+    semantic_checks:
+      - "두 요소가 실제로 대립하는 선택 쌍인지 (수락 vs 거절)"
+      - "강조된 쪽이 사업자에게 유리한 선택인지"
+      - "선택과 비선택이 같은 수준의 형태로 구성되어 중립적 화면인지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-02", "DA-04", "DA-13"]
+    required_evidence: [element_bbox, computed_style, option_pair]
+    official_examples:
+      - "'신청하기'는 검은색으로 짙게, '다음에 하기'는 배경과 같은 색으로 처리"
+      - "동의 팝업에서 'X'는 우측 상단에 연하게, '동의하기'는 하단에 강조"
+      - "펀드 가입유형 중 적립식 옵션만 시각적으로 강조"
+
+  - rule_id: "DA-04"
+    category: MISLEADING
+    official_no: "오도형 ④"
+    official_name_ko: "특정옵션의 사전선택"
+    official_definition: "사업자에게 유리한 선택사항을 미리 선택해 두고 금융소비자가 이를 지나치거나 그대로 수용하도록 유도하는 행위"
+    detection_scope: single_screen
+    mvp_priority: P0
+    standalone_sufficient: true
+    legal_basis: []
+    observable_features: [checkbox, toggle, radio, default_selected, select_all_control, adjacent_price_text]
+    deterministic_checks:
+      - id: default_checked
+        desc: "초기 렌더 상태에서 checkbox/toggle/radio가 selected"
+      - id: default_affirmative_answer
+        desc: "이해여부 확인·재투자 여부 등에서 긍정 답변('예'/'찬성')이 기본값"
+      - id: optional_consent_prechecked
+        desc: "개인정보 수집 선택 동의·마케팅 동의가 사전 선택"
+      - id: premium_option_default
+        desc: "복수 플랜 중 상위·고가 플랜이 기본 선택"
+    semantic_checks:
+      - "선택된 항목이 필수 항목인지, 선택 가능한 항목인지"
+      - "사전 선택이 사업자에게 유리한 방향인지"
+      - "선택되어 있다는 사실을 소비자가 인식할 수 있는 시각적 단서가 있는지"
+    mitigating_checks:
+      - id: select_all_available
+        desc: "소비자 편익상 불가피한 다수 사전선택인 경우 전체선택·전체취소 버튼이 활성화되어 있음 (원문 준수사항)"
+    combination_amplifiers: ["DA-03", "DA-09"]
+    required_evidence: [element_state, option_text, price, element_bbox]
+    fix_template: "초기 상태를 미선택으로 변경하고, 소비자의 클릭·터치가 있어야 선택 효과가 발생하도록 구성한다. 불가피한 다수 사전선택 시 전체선택·전체취소 컨트롤을 제공한다."
+    official_examples:
+      - "실손보험 가입 과정에서 종합보험 동시 가입 옵션이 사전선택"
+      - "카드 신청 시 일부 부가서비스가 자동 사전선택"
+      - "보험 가입 시 가장 비싼 프리미엄 플랜을 사전선택"
+      - "펀드 재투자 여부 기본값이 '찬성'"
+      - "이해여부 확인 시 '예'가 사전선택"
+      - "자동이체 관련 옵션이 사전선택"
+    note: "v0.1에서 '유료 부가서비스'로 좁게 잡았으나 원문 예시는 가격이 없는 동의·기본값까지 포괄한다. 추가 비용 존재는 필수 조건이 아니라 severity 가중 요소로만 사용한다."
+
+  - rule_id: "DA-05"
+    category: MISLEADING
+    official_no: "오도형 ⑤"
+    official_name_ko: "허위광고 및 기만적인 유인행위"
+    official_definition: "명확한 근거 없이 거짓·과장 광고를 하거나, 소비자의 선택에 영향을 미칠 수 있는 사실을 조작·은폐·누락·축소해 사실을 잘못 알게 하거나 주의·흥미를 일으키는 행위"
+    detection_scope: single_screen
+    mvp_priority: P1
+    standalone_sufficient: true
+    legal_basis:
+      - "표시·광고의 공정화에 관한 법률 제3조"
+      - "금융소비자보호법 제22조"
+      - "금소법 시행령 제20조 제1항 제4호 (단정적 판단 제공 금지)"
+    observable_features: [comparison_claim, superlative_text, footnote, disclaimer_font_size, definitive_expression]
+    deterministic_checks:
+      - id: comparison_without_basis
+        desc: "타사 대비 우위를 주장하나 비교 대상의 구체적 수치·기준이 화면에 없음"
+      - id: definitive_return_expression
+        desc: "투자성 상품에서 단정적 수익 표현('약속한 수익' 등) 사용"
+      - id: superlative_without_basis
+        desc: "최상급 표현(최대/최저/1위/유일) + 근거 각주 부재"
+      - id: disclaimer_size_gap
+        desc: "단서 조항 폰트 크기가 주장 문구 대비 현저히 작음"
+        threshold: "<= 0.6"
+    semantic_checks:
+      - "표시된 수치를 일반 소비자가 실제로 받을 수 있는 조건인지"
+      - "단서가 주장의 핵심 전제를 뒤집는 수준인지"
+      - "불확실한 사항을 확실한 것처럼 오인하게 하는 표현인지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-07", "DA-08"]
+    required_evidence: [claim_text, disclaimer_text, font_size_ratio]
+    official_examples:
+      - "타사 평균보다 금리 혜택이 좋다고 광고하나 타사 평균이 몇 %인지 알 수 없는 경우"
+      - "투자상품 탭의 '약속한 수익 받기'가 채권·발행어음 투자로 연결"
+
+  # ================================================================ 방해형 (4)
+
+  - rule_id: "DA-06"
+    category: OBSTRUCTION
+    official_no: "방해형 ①"
+    official_name_ko: "취소·탈퇴 등의 방해"
+    official_definition: "금융상품·서비스의 계약(가입) 절차보다 취소·해지·탈퇴 절차가 복잡하거나 그 절차 진입경로를 숨기는 방법 등으로 자유로운 취소·해지·탈퇴를 방해하는 행위"
+    detection_scope: dual_flow
+    mvp_priority: P1
+    standalone_sufficient: true
+    legal_basis: []
+    observable_features: [click_count, menu_depth, cancel_entry_point, channel_type, reason_notice, integrated_app_scope]
+    deterministic_checks:
+      - id: click_count_asymmetry
+        desc: "가입에 필요한 메뉴·버튼 클릭 수 대비 취소·탈퇴에 필요한 클릭 수 (원문이 명시한 판단 방법)"
+        threshold: "cancel_clicks > join_clicks"
+      - id: no_cancel_entry_in_app
+        desc: "앱 내에 해지 메뉴가 존재하지 않고 챗봇·상담원 연결로만 유도"
+      - id: channel_downgrade_without_notice
+        desc: "가입은 온라인, 해지는 전화·대면만 가능하면서 그 사유가 온라인 화면에 안내되지 않음"
+      - id: nested_service_withdrawal
+        desc: "통합앱에서 개별 금융회사·서비스 탈퇴 버튼이 통합앱 탈퇴 절차를 모두 거친 뒤에야 노출"
+    semantic_checks:
+      - "해지 경로 라벨이 해지임을 명확히 알 수 있는 표현인지"
+      - "추가 요구 절차가 필수 안내사항·녹취 등 정당한 사유에 근거하는지"
+      - "통합앱 내 회사·서비스별 탈퇴가 명확히 안내되는지"
+    mitigating_checks:
+      - id: reason_disclosed_onscreen
+        desc: "전화·대면 연결이 필요한 사유를 온라인 화면 내에 명확히 안내 (원문이 인정한 정당 사유)"
+    combination_amplifiers: ["DA-02", "DA-09", "DA-11"]
+    required_evidence: [join_flow, cancel_flow, click_counts, entry_path, reason_notice]
+    input_requirement: "가입 Flow와 해지 Flow를 별도 세트로 업로드해야 판정 가능 — DB·API에 flow_type 필드 필요"
+    official_examples:
+      - "앱 내 해지 메뉴가 없어 챗봇 질의 시 상담원 전화연결로 유도하면서 그 사유를 화면에 안내하지 않는 경우"
+      - "통합앱 탈퇴 4단계를 모두 거쳐야 은행 서비스 탈퇴 버튼을 찾을 수 있는 경우"
+
+  - rule_id: "DA-07"
+    category: OBSTRUCTION
+    official_no: "방해형 ②"
+    official_name_ko: "숨겨진 정보"
+    official_definition: "금융상품·서비스 계약(가입) 과정에서 금융소비자에게 필요한 중요 정보를 제대로 표시하지 않거나 은폐·누락·축소시켜 알기 어렵게 하는 행위"
+    detection_scope: single_screen
+    mvp_priority: P0
+    standalone_sufficient: true
+    legal_basis:
+      - "금융소비자보호법 제19조 제1항"
+      - "금소법 시행령 제19조 제1항 / 감독규정 제18조 (혜택과 불이익의 균형 있는 전달)"
+      - "금융광고규제 가이드라인"
+      - "온라인 설명의무 가이드라인"
+    observable_features: [font_size, color_contrast, accordion_collapsed, scroll_direction, next_button_state, benefit_risk_pair]
+    deterministic_checks:
+      - id: benefit_risk_asymmetry
+        desc: "혜택 문구는 크고 명확하게, 손실·위험 문구는 작고 흐리게 표시 (원문 핵심 예시)"
+        threshold: "font_size_ratio <= 0.7 OR contrast_ratio < 4.5"
+      - id: detail_behind_click
+        desc: "중요 정보가 '자세히 보기' 클릭 또는 좌우 스크롤로만 확인 가능"
+      - id: skippable_without_confirm
+        desc: "설명서를 확인하지 않거나 다운로드만 해도 다음 단계로 진행 가능"
+      - id: scroll_only_bypass
+        desc: "단순 스크롤만으로 설명 화면을 건너뛸 수 있음"
+      - id: collapsed_by_default
+        desc: "중요 정보가 기본 접힘 상태 내부에 위치"
+    semantic_checks:
+      - "해당 정보가 금소법 제19조 제1항의 중요한 사항 또는 소비자 권리에 해당하는지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-03", "DA-05"]
+    required_evidence: [text_content, computed_style, element_bbox, next_button_state]
+    official_examples:
+      - "펀드 가입 시 종목 정보를 '종목 자세히 보기'로만 확인할 수 있고, 확인하지 않아도 가입이 진행되는 경우"
+      - "ELS/DLS 상품의 장점은 크고 명확하게, 원금 손실 유의사항은 흐린 색상의 작은 글씨로 제시"
+
+  - rule_id: "DA-08"
+    category: OBSTRUCTION
+    official_no: "방해형 ③"
+    official_name_ko: "가격비교 방해"
+    official_definition: "금융상품·서비스 계약(가입) 과정에서 다른 제안이나 가격과 비교하는 것을 제한해 금융소비자에게 유리한 선택을 방해하는 행위"
+    detection_scope: single_screen
+    mvp_priority: P2
+    standalone_sufficient: true
+    legal_basis:
+      - "금융소비자보호법 제19조 (설명의무)"
+      - "금융소비자보호법 제21조 제4호 (부당권유행위)"
+      - "금융소비자보호법 제22조 (광고규제)"
+      - "금소법 시행령 제20조"
+    observable_features: [rate_basis, product_list, rate_value, preferential_condition]
+    deterministic_checks:
+      - id: inconsistent_rate_basis
+        desc: "한 화면 내 상품별 이율 기준이 혼재 (일부는 최저 이율, 일부는 최고 이율) — 원문 핵심 예시"
+      - id: max_benefit_only
+        desc: "우대 조건·자격을 표시하지 않고 최고 혜택 수치만 노출"
+      - id: promoted_product_ordering
+        desc: "특정 상품만 상위에 배치하면서 표시 기준이 상이"
+    semantic_checks:
+      - "한 화면이 통일된 기준과 조건으로 구성되어 있는지"
+      - "비교를 어렵게 하는 구성이 상품 특성상 불가피한지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-05", "DA-15"]
+    required_evidence: [rate_elements, basis_labels, condition_text]
+    official_examples:
+      - "대출 상품 안내화면에서 상품에 따라 최저 이율과 최고 이율을 섞어 표시해 비교가 어려운 경우"
+
+  - rule_id: "DA-09"
+    category: OBSTRUCTION
+    official_no: "방해형 ④"
+    official_name_ko: "클릭 피로감 유발"
+    official_definition: "금융소비자가 유리한 옵션을 선택하거나 원하는 정보를 구하기 위해 많은 클릭이 필요하도록 만들어 스스로 피로감을 느끼고 유리한 선택이나 정보 수집을 포기하도록 유도하는 행위"
+    detection_scope: multi_screen
+    mvp_priority: P1
+    standalone_sufficient: false
+    legal_basis: []
+    observable_features: [click_count, item_count, select_all_control, menu_depth, question_count]
+    deterministic_checks:
+      - id: no_bulk_deselect
+        desc: "다중 항목 화면에서 전체선택·전체취소 컨트롤이 없어 항목을 하나씩 해제해야 함 (원문 준수사항)"
+      - id: excessive_path_depth
+        desc: "단순화 가능한 경로임에도 여러 메뉴를 거쳐야 목표에 도달"
+        threshold: "menu_depth >= 3"
+      - id: asymmetric_path_length
+        desc: "수락 경로 클릭 수 대비 거절·해제 경로 클릭 수"
+        threshold: ">= 2.0"
+      - id: unnecessary_question_chain
+        desc: "특정 선택을 위해 불필요한 다수 질문에 응답하도록 구성"
+    semantic_checks:
+      - "반복 단계가 법정 절차(설명의무·본인확인)에 해당하는지, 불필요한 반복인지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-06", "DA-04"]
+    required_evidence: [screen_sequence, click_trace, item_list, select_all_presence]
+    official_examples:
+      - "오픈뱅킹 가입 과정에서 연결하지 않을 계좌 항목을 하나씩 해제해야 하는 경우"
+    note: "원문이 단독 규제는 어렵다고 명시. 계약해지·청약철회·분쟁처리 메뉴 접근을 어렵게 하는 경우 DA-06과 함께 판정한다."
+
+  # ================================================================ 압박형 (5)
+
+  - rule_id: "DA-10"
+    category: PRESSURE
+    official_no: "압박형 ①"
+    official_name_ko: "계약과정 중 기습적 광고"
+    official_definition: "특정 금융상품·서비스를 온라인으로 가입하는 과정에서 거래 목적과 무관한 상품·서비스를 기습적으로 광고하는 행위"
+    detection_scope: multi_screen
+    mvp_priority: P2
+    standalone_sufficient: true
+    legal_basis: []
+    observable_features: [popup, banner, product_name, flow_stage, completion_state]
+    deterministic_checks:
+      - id: ad_before_completion
+        desc: "계약(가입)이 완료되기 전 단계에서 부수 상품·서비스 가입 유도 팝업·배너 노출"
+      - id: unrelated_product
+        desc: "광고 상품이 현재 가입 대상 상품과 무관"
+      - id: visual_emphasis_on_addon
+        desc: "부수 서비스 선택 항목이 시각적으로 두드러지게 표시"
+    semantic_checks:
+      - "광고 대상이 현재 거래 목적과 관련 있는지"
+      - "부수 서비스 가입이 주된 상품 가입의 전제처럼 오인될 소지가 있는지"
+    mitigating_checks:
+      - id: after_completion_only
+        desc: "부수 상품·서비스 안내가 모든 계약 완료 이후에 진행됨 (원문 준수사항)"
+    combination_amplifiers: ["DA-03", "DA-11"]
+    required_evidence: [ad_element, current_product, screen_index, completion_state]
+    official_examples:
+      - "신용카드 가입 중 휴대폰 번호 인증 직후 휴대폰 요금 정기결제 가입 유도 팝업 노출"
+      - "신용카드 발급 시 도시가스·아파트 관리비 자동이체 가입 유도"
+
+  - rule_id: "DA-11"
+    category: PRESSURE
+    official_no: "압박형 ②"
+    official_name_ko: "반복간섭"
+    official_definition: "사업자에게 유리한 특정 행위를 금융소비자에게 지속적으로 요구하는 행위. 소비자가 이미 의사표시를 했음에도 반복해 의사표시를 요구하는 것이 문제"
+    detection_scope: multi_screen
+    mvp_priority: P1
+    standalone_sufficient: true
+    legal_basis: []
+    observable_features: [popup, request_text, decline_action, text_similarity]
+    deterministic_checks:
+      - id: repeated_request
+        desc: "하나의 이용절차·의사결정 과정 중 동일한 요구가 반복 (원문이 2회 이상을 반복으로 정의)"
+        threshold: ">= 2"
+      - id: post_decline_reprompt
+        desc: "'다음에 하기' 또는 거부 의사를 표시했음에도 팝업으로 재확인"
+      - id: similar_request_text
+        desc: "요구 문구 유사도"
+        threshold: "cosine >= 0.85"
+    semantic_checks:
+      - "반복되는 요구가 동일한 행위를 대상으로 하는지"
+      - "재확인이 소비자의 실수 방지 목적인지, 의사 번복 유도인지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-03", "DA-10", "DA-12"]
+    required_evidence: [repeated_elements, screen_indices, decline_action]
+    official_examples:
+      - "마이데이터 서비스 가입 시 '다음에 하기'를 눌러도 '다음에 할까요?' 팝업으로 재확인"
+      - "후불 하이패스(연회비 2천원) '신청안함' 선택 후 다음으로 넘어갈 때 신청 팝업 재노출"
+    note: "원문 준수사항 — 의사를 재차 확인하기보다 이전 단계로 자유롭게 돌아갈 수 있도록 설계해야 한다."
+
+  - rule_id: "DA-12"
+    category: PRESSURE
+    official_no: "압박형 ③"
+    official_name_ko: "감정적 언어사용"
+    official_definition: "감정을 자극하는 언어적 표현을 통해 금융소비자가 특정 행동을 하도록 압박하는 행위"
+    detection_scope: single_screen
+    mvp_priority: P0
+    standalone_sufficient: false
+    legal_basis: []
+    observable_features: [text_content, cta_label, decline_label, trivializing_term]
+    deterministic_checks:
+      - id: emotive_lexicon_hit
+        desc: "감정 자극 어휘 사전 매칭 (부담스러우세요 / 포기 / 손해 / 후회 / 놓치다 등)"
+      - id: loss_framed_decline
+        desc: "거절 선택지 라벨이 중립 표현이 아닌 손실 프레이밍"
+      - id: trivializing_expression
+        desc: "유료·위험 서비스를 '체험' 등 가벼운 표현으로 지칭 (원문 예시)"
+    semantic_checks:
+      - "소비자가 그 표현의 의미를 정확하게 이해할 수 없는 정도인지 (원문 적용 기준)"
+      - "수락 라벨과 거절 라벨의 프레이밍이 비대칭인지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-03", "DA-04", "DA-11", "DA-13"]
+    required_evidence: [text_content, element_role, option_pair]
+    fix_template: "거절 선택지를 손실 프레이밍 없는 중립 표현으로 변경하고, 유료 서비스를 가벼운 표현으로 지칭하지 않는다."
+    official_examples:
+      - "신용카드 결제예정금액 화면에서 '이번달 결제할 금액이 부담스러우세요?'로 리볼빙을 유도하고 '체험'이라는 가벼운 표현을 사용"
+    note: "단독 탐지 시 HIGH 금지. 원문이 '행위 자체로는 문제되지 않으나 다른 행위와 결합해 기만하는 경우 규제 가능'이라고 명시."
+
+  - rule_id: "DA-13"
+    category: PRESSURE
+    official_no: "압박형 ④"
+    official_name_ko: "감각조작"
+    official_definition: "사용자의 주의를 한 가지에 집중시켜 다른 것들로부터 주의를 분산시키는 인터페이스의 변화. 디지털 환경에서는 주로 색상·크기·위치·스타일 변화 등 시각적 조작을 활용"
+    detection_scope: single_screen
+    mvp_priority: P0
+    standalone_sufficient: false
+    legal_basis: []
+    observable_features: [color, size, position, style_change, animation, blink, audio_cue]
+    deterministic_checks:
+      - id: motion_emphasis
+        desc: "특정 선택 항목에만 점멸·애니메이션 효과 적용 (원문 예시)"
+      - id: attention_concentration
+        desc: "시각 가중치(면적×채도×대비) 상위 요소가 화면 전체의 과반 점유"
+        threshold: ">= 0.5"
+      - id: persistent_stimulus
+        desc: "자극이 지속되어 소비자가 벗어날 수 없는 구조"
+      - id: suppressed_neighbor
+        desc: "동급 정보 요소가 저채도·저대비로 상대적 약화"
+    semantic_checks:
+      - "강조된 요소와 약화된 요소가 동등한 중요도의 정보인지"
+      - "자극이 특정 선택을 유도하는 방향인지"
+    mitigating_checks: []
+    combination_amplifiers: ["DA-03", "DA-04", "DA-12"]
+    required_evidence: [visual_weight_map, element_bbox, computed_style, animation_state]
+    official_examples:
+      - "필수 약관만 동의하면 선택 약관 부분이 파란색으로 깜빡거려 선택약관 동의를 유도"
+    note: "단독 탐지 시 HIGH 금지. 원문이 '잘못된 계층구조 등 다른 행위와 결합할 때 기만 정도가 커진다'고 명시."
+
+  - rule_id: "DA-14"
+    category: PRESSURE
+    official_no: "압박형 ⑤"
+    official_name_ko: "다른 소비자의 활동 알림"
+    official_definition: "해당 금융상품을 보거나 구매한 금융소비자의 수를 표시해 가입을 망설이는 소비자의 의사결정을 압박하는 행위. 다만 활동 상태를 알리는 것 자체가 아니라 이를 거짓으로 알리는 행위가 문제"
+    detection_scope: single_screen
+    mvp_priority: P1
+    standalone_sufficient: false
+    legal_basis:
+      - "전자상거래법"
+      - "표시·광고의 공정화에 관한 법률"
+    observable_features: [social_proof_text, counter, period_label, basis_notice, review_block]
+    deterministic_checks:
+      - id: social_proof_present
+        desc: "가입자 수·조회 수·후기 등 다른 소비자 활동 정보 표시 — 그 자체로는 위반이 아니며 아래 조건과 결합해서만 평가"
+      - id: missing_basis_or_period
+        desc: "표시된 수치의 산출 기준·집계 기간이 화면에 제시되지 않음"
+      - id: unverifiable_realtime_claim
+        desc: "실시간성을 주장하나('지금 N명') 근거를 확인할 수 없음"
+    semantic_checks:
+      - "표시 내용이 정확한 정보인지 — 진위는 자동 판정 불가하므로 담당자 확인 필요 항목으로 분류"
+      - "가입 결정 직전 단계에 배치되어 압박으로 작용하는지"
+    mitigating_checks:
+      - id: basis_and_period_disclosed
+        desc: "집계 기간과 산출 기준을 함께 명시 (예: 최근 3개월 가입자 수)"
+    combination_amplifiers: ["DA-03", "DA-05", "DA-12"]
+    required_evidence: [text_content, counter_value, period_label, element_bbox]
+    official_examples:
+      - "펀드 세부정보 상단에 최근 3개월간 가입자 수 표시"
+      - "보험 가입 신청 전 다른 소비자의 후기 노출"
+    note: |
+      v0.1은 표시 패턴 자체를 위험으로 판정하도록 설계했으나 원문과 어긋난다.
+      원문은 거짓으로 알리는 행위를 문제 삼으며 정확히 알린다면 허용된다.
+      DarkAudit은 진위를 검증할 수 없으므로 HIGH를 부여하지 않고
+      근거 표시 여부만 관찰해 Review required로 분류한다.
+
+  # ============================================================ 편취유도형 (1)
+
+  - rule_id: "DA-15"
+    category: EXPLOITATION
+    official_no: "편취유도형"
+    official_name_ko: "순차공개 가격책정"
+    official_definition: "금융상품 검색결과 첫 페이지에 최대 이익 또는 최소 이율 등 소비자를 유인하기 위해 일부러 가격을 낮게 표시하고, 계약(가입) 절차가 진행됨에 따라 숨겨진 비용·가격을 순차적으로 보여주는 행위"
+    detection_scope: multi_screen
+    mvp_priority: P0
+    standalone_sufficient: true
+    legal_basis: []
+    observable_features: [rate_value, price_value, screen_index, fee_item, range_display, variability_notice]
+    deterministic_checks:
+      - id: rate_deterioration_across_screens
+        desc: "최초 화면 표시 이율·수익률 대비 최종 단계 적용치가 소비자에게 불리하게 변경"
+      - id: price_increase_across_screens
+        desc: "동일 상품의 최초 표시가 대비 최종 결제가 증가"
+      - id: late_fee_disclosure
+        desc: "수수료·부가비용 항목이 Flow 후반부에서 최초 등장"
+      - id: single_point_rate_display
+        desc: "첫 화면에 단일 최고 이율만 표시하고 범위를 제시하지 않음"
+    semantic_checks:
+      - "최초 표시 수치를 일반 소비자가 실제로 달성할 수 있는 조건인지"
+      - "가격 변동이 소비자의 명시적 선택 결과인지, 사전 미고지 비용인지"
+    mitigating_checks:
+      - id: variability_notice_on_first_screen
+        desc: "첫 화면에서 신용점수·선택사항 등에 따라 비용·수익이 변경될 수 있다는 사실을 고지 (원문이 인정한 대안)"
+      - id: rate_range_display
+        desc: "최소 이율부터 최고 이율까지 범위로 표시 (원문이 인정한 대안)"
+    combination_amplifiers: ["DA-05", "DA-08"]
+    required_evidence: [rate_timeline, price_timeline, screen_indices, fee_items, first_screen_notice]
+    fix_template: "첫 화면에 예상 이율·수익률을 범위로 표시하거나, 신용점수·선택사항에 따라 변동될 수 있다는 사실을 고지해 예측가능성을 확보한다."
+    official_examples:
+      - "예·적금 정보 화면에 최고 이율이 표시되나 실제 가입 과정에서 요건을 충족하지 못하면 해당 이율을 받을 수 없어 타 상품과 비교가 어려운 경우"
+
+## =============================================================================
+##  Summary
+##  P0 (6) : DA-03 DA-04 DA-07 DA-12 DA-13 DA-15
+##  P1 (6) : DA-02 DA-05 DA-06 DA-09 DA-11 DA-14
+##  P2 (3) : DA-01 DA-08 DA-10
+##
+##  standalone_sufficient = false (단독 HIGH 금지) : DA-09 DA-12 DA-13 DA-14
+##  → MVP P0 중 DA-12, DA-13이 해당하므로 결합 판정 로직이 MVP 필수다.
+## =============================================================================
