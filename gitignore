@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+build/
+
+# 생성물 — YAML 이 원본, JSON 은 빌드 산출물
+rules/dark_pattern_rules.json
+
+# 데이터
+data/synthetic/screenshots/
+*.db
+*.sqlite3
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
