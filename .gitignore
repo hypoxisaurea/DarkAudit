@@ -16,7 +16,6 @@ rules/dark_pattern_rules.json
 
 # 데이터
 data/synthetic/screenshots/
-data/uploads/
 *.db
 *.sqlite3
 
@@ -24,3 +23,7 @@ data/uploads/
 .DS_Store
 .idea/
 .vscode/
+
+# 생성물 — config 로 언제든 재생성 가능
+data/synthetic/html/
+data/synthetic/review/

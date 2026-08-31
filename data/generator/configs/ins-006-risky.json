@@ -1,0 +1,12 @@
+{
+  "flow_id": "ins-006-risky",
+  "pair_id": "ins-006",
+  "variant": "risky",
+  "sector": "insurance",
+  "flow_type": "join",
+  "base_price": 9900,
+  "final_price": 12900,
+  "patterns": [
+    "DA-13"
+  ]
+}

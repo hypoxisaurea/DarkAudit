@@ -1,0 +1,10 @@
+{
+  "flow_id": "ins-006-clean",
+  "pair_id": "ins-006",
+  "variant": "clean",
+  "sector": "insurance",
+  "flow_type": "join",
+  "base_price": 9900,
+  "final_price": 12900,
+  "patterns": []
+}

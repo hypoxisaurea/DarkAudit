@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "flow_id": "ins-003-clean",
+  "variant": "clean",
+  "pair_id": "ins-003",
+  "sector": "insurance",
+  "flow_type": "join",
+  "screens": [
+    {
+      "screen_index": 1,
+      "image": "ins-003-clean/01.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 2,
+      "image": "ins-003-clean/02.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 3,
+      "image": "ins-003-clean/03.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 4,
+      "image": "ins-003-clean/04.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 5,
+      "image": "ins-003-clean/05.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    }
+  ],
+  "labels": [],
+  "deferred": []
+}
