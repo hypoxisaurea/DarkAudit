@@ -39,11 +39,17 @@
     "eslint-plugin-react-refresh": "latest",
     "globals": "latest",
     "jsdom": "latest",
+    "msw": "^2.15.0",
     "prettier": "latest",
     "tailwindcss": "latest",
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vite": "latest",
     "vitest": "latest"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

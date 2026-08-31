@@ -1,0 +1,126 @@
+import type { DashboardSummaryDto, FindingDto } from "@/entities/audit/types";
+
+const findings: FindingDto[] = [
+  {
+    id: "finding-preselected-option",
+    ruleId: "DA-04",
+    riskType: "PRESELECTED_OPTION",
+    title: "Preselected Option",
+    description: "유료 옵션이 기본 선택되어 사용자의 능동적 선택을 침해할 수 있습니다.",
+    screenIds: ["screen-option"],
+    element: "Checkbox",
+    defaultState: "Selected",
+    costImpact: "+₩3,000 / month",
+    severity: "HIGH",
+    status: "reviewing",
+    confidence: 0.94,
+    recommendation:
+      "추가 비용이 발생하는 옵션의 기본 선택을 해제하고 사용자가 직접 선택하도록 변경하세요.",
+    guideline:
+      "2.1.1. (사전선택 금지) 금융회사는 소비자가 추가 비용이 발생하는 서비스를 이용하지 않도록 기본 설정해서는 안 됩니다.",
+  },
+  {
+    id: "finding-emotional-pressure",
+    ruleId: "DA-12",
+    riskType: "EMOTIONAL_LANGUAGE",
+    title: "Emotional Pressure",
+    description: "불안감을 자극하는 문구가 사용자의 합리적 판단을 저해할 수 있습니다.",
+    screenIds: ["screen-consent"],
+    element: "Exit confirmation copy",
+    severity: "REVIEW",
+    status: "open",
+    confidence: 0.81,
+    recommendation: "이탈 선택을 중립적인 문구로 제공하고 혜택 상실을 과장하지 마세요.",
+    guideline: "소비자의 의사결정을 심리적으로 압박하거나 불필요한 불안감을 조성해서는 안 됩니다.",
+  },
+  {
+    id: "finding-sequential-pricing",
+    ruleId: "DA-15",
+    riskType: "SEQUENTIAL_PRICE_DISCLOSURE",
+    title: "Sequential Pricing",
+    description: "가격 정보가 단계적으로 제공되어 전체 비용 인식이 어려울 수 있습니다.",
+    screenIds: ["screen-option", "screen-review"],
+    element: "Price summary",
+    costImpact: "+₩3,000 / month",
+    severity: "REVIEW",
+    status: "resolved",
+    confidence: 0.76,
+    recommendation: "첫 가격 안내 시점부터 필수 비용과 선택 비용을 함께 표시하세요.",
+    guideline: "소비자가 거래 초기부터 지불할 전체 가격을 명확히 인식할 수 있어야 합니다.",
+  },
+];
+
+export const dashboardFixture: DashboardSummaryDto = {
+  activeAuditId: "audit-insurance-v1",
+  audits: [
+    {
+      id: "audit-insurance-v1",
+      name: "Insurance Signup Flow v1",
+      platform: "mobile-web",
+      status: "analyzing",
+      updatedAt: "2024-05-15T14:20:00+09:00",
+      screens: [
+        {
+          id: "screen-intro",
+          order: 1,
+          flowStep: "Product Intro",
+          imageUrl: "/mock/intro.png",
+          findingCount: 0,
+        },
+        {
+          id: "screen-option",
+          order: 2,
+          flowStep: "Option Selection",
+          imageUrl: "/mock/option.png",
+          findingCount: 1,
+        },
+        {
+          id: "screen-consent",
+          order: 3,
+          flowStep: "Consent",
+          imageUrl: "/mock/consent.png",
+          findingCount: 1,
+        },
+        {
+          id: "screen-review",
+          order: 4,
+          flowStep: "Final Review",
+          imageUrl: "/mock/review.png",
+          findingCount: 1,
+        },
+        {
+          id: "screen-complete",
+          order: 5,
+          flowStep: "Complete",
+          imageUrl: "/mock/complete.png",
+          findingCount: 0,
+        },
+      ],
+      findings,
+    },
+    {
+      id: "audit-savings-v2",
+      name: "Savings Account Flow v2",
+      platform: "mobile-web",
+      status: "completed",
+      updatedAt: "2024-05-14T11:05:00+09:00",
+      screens: [
+        {
+          id: "savings-intro",
+          order: 1,
+          flowStep: "Product Intro",
+          imageUrl: "/mock/savings.png",
+          findingCount: 0,
+        },
+        {
+          id: "savings-complete",
+          order: 2,
+          flowStep: "Complete",
+          imageUrl: "/mock/savings-complete.png",
+          findingCount: 0,
+        },
+      ],
+      findings: [],
+    },
+  ],
+};

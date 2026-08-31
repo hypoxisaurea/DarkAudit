@@ -10,63 +10,20 @@ import {
   FileText,
   MonitorSmartphone,
   MoreVertical,
+  RefreshCw,
   Search,
   ShieldCheck,
   Smartphone,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import type { AuditDto, AuditScreenDto, FindingDto } from "@/entities/audit/types";
+import { useDashboardSummary } from "@/features/audit-dashboard/useDashboardSummary";
 import { cn } from "@/lib/cn";
-
-const metrics = [
-  {
-    label: "Findings detected",
-    value: 7,
-    icon: ShieldCheck,
-    action: "View all",
-    color: "text-brand-400",
-  },
-  {
-    label: "Need review",
-    value: 2,
-    icon: CircleAlert,
-    action: "Review now",
-    color: "text-warning",
-  },
-  { label: "Resolved", value: 5, icon: CheckCircle2, action: "View resolved", color: "text-white" },
-];
-
-const flowSteps = [
-  { name: "Product Intro", issue: false },
-  { name: "Option Selection", issue: true },
-  { name: "Consent", issue: true },
-  { name: "Final Review", issue: false },
-  { name: "Complete", issue: false },
-];
-
-const findings = [
-  {
-    code: "DP-04",
-    title: "Preselected Option",
-    copy: "유료 옵션이 기본 선택되어 추가 비용이 발생할 수 있습니다.",
-    variant: "danger" as const,
-  },
-  {
-    code: "DP-12",
-    title: "Emotional Pressure",
-    copy: "불안감을 자극하는 문구가 사용자의 합리적 판단을 저해할 수 있습니다.",
-    variant: "warning" as const,
-  },
-  {
-    code: "DP-15",
-    title: "Sequential Pricing",
-    copy: "가격 정보가 단계적으로 제공되어 전체 비용 인식이 어려울 수 있습니다.",
-    variant: "success" as const,
-  },
-];
 
 function MobileScreen({ complete = false }: { complete?: boolean }) {
   return (
@@ -120,7 +77,15 @@ function MiniScreen({ index }: { index: number }) {
   );
 }
 
-function FlowOverview() {
+function FlowOverview({
+  screens,
+  selectedScreenId,
+  onSelect,
+}: {
+  screens: AuditScreenDto[];
+  selectedScreenId: string;
+  onSelect: (screenId: string) => void;
+}) {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between">
@@ -130,36 +95,43 @@ function FlowOverview() {
         </button>
       </div>
       <div className="mt-7 grid grid-cols-5 gap-2 overflow-x-auto">
-        {flowSteps.map((step, index) => (
-          <div className="relative min-w-20 text-center" key={step.name}>
-            {index < flowSteps.length - 1 && (
+        {screens.map((screen, index) => (
+          <button
+            className={cn(
+              "relative min-w-20 rounded-control p-1 text-center",
+              selectedScreenId === screen.id && "bg-brand-50 ring-1 ring-brand-400",
+            )}
+            key={screen.id}
+            onClick={() => onSelect(screen.id)}
+          >
+            {index < screens.length - 1 && (
               <span className="absolute left-[60%] top-3 h-px w-[80%] border-t border-dashed border-muted/40" />
             )}
             <div className="relative mx-auto flex size-6 items-center justify-center rounded-full bg-brand-900 text-[9px] font-bold text-white">
               {index + 1}
-              {step.issue && (
+              {screen.findingCount > 0 && (
                 <span className="absolute -right-5 flex size-4 items-center justify-center rounded-full bg-danger text-[8px]">
-                  1
+                  {screen.findingCount}
                 </span>
               )}
             </div>
             <div className="mx-auto mt-4 w-fit">
               <MiniScreen index={index} />
             </div>
-            <p className="mt-2 truncate text-[10px] font-medium">{step.name}</p>
-          </div>
+            <p className="mt-2 truncate text-[10px] font-medium">{screen.flowStep}</p>
+          </button>
         ))}
       </div>
     </Card>
   );
 }
 
-function ScreenPreview() {
+function ScreenPreview({ screen }: { screen: AuditScreenDto }) {
   return (
     <Card className="relative mt-4 min-h-[380px] overflow-hidden p-5">
       <h2 className="text-sm font-bold">Screen preview</h2>
       <div className="absolute inset-x-0 bottom-0 top-14 flex items-end justify-center bg-gradient-to-b from-white to-brand-50/60">
-        <MobileScreen />
+        <MobileScreen complete={screen.flowStep === "Complete"} />
       </div>
       <div className="absolute right-4 top-20 overflow-hidden rounded-control border border-border bg-white shadow-sm">
         {[ZoomIn, ZoomOut, Search, Expand].map((Icon, index) => (
@@ -176,81 +148,125 @@ function ScreenPreview() {
   );
 }
 
-function FindingDetails() {
+function FindingDetails({
+  finding,
+  position,
+  total,
+}: {
+  finding?: FindingDto;
+  position: number;
+  total: number;
+}) {
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <h2 className="text-sm font-bold">Finding details</h2>
         <div className="flex items-center gap-3 text-sm">
           <ChevronLeft size={15} />
-          <span>2 / 7</span>
+          <span>
+            {total ? position + 1 : 0} / {total}
+          </span>
           <ChevronRight size={15} />
           <MoreVertical size={16} />
         </div>
       </div>
-      <div className="p-6">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-bold text-brand-700">DP-04</p>
-          <Badge variant="danger">●&nbsp; Needs Review</Badge>
+      {finding ? (
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-brand-700">{finding.ruleId}</p>
+            <Badge variant={finding.status === "resolved" ? "success" : "danger"}>
+              ●&nbsp; {finding.status === "resolved" ? "Resolved" : "Needs Review"}
+            </Badge>
+          </div>
+          <h3 className="mt-3 text-2xl font-bold">{finding.title}</h3>
+          <p className="mt-3 text-sm leading-6 text-muted">{finding.description}</p>
+          <dl className="mt-6 divide-y divide-border border-y border-border text-sm">
+            <div className="grid grid-cols-2 py-3">
+              <dt className="text-muted">Element</dt>
+              <dd>{finding.element}</dd>
+            </div>
+            <div className="grid grid-cols-2 py-3">
+              <dt className="text-muted">Default state</dt>
+              <dd className="font-semibold text-danger">{finding.defaultState ?? "-"}</dd>
+            </div>
+            <div className="grid grid-cols-2 py-3">
+              <dt className="text-muted">Cost impact</dt>
+              <dd className="font-semibold text-danger">{finding.costImpact ?? "-"}</dd>
+            </div>
+          </dl>
+          <div className="mt-6 flex gap-4 rounded-card border border-border p-5">
+            <FileText className="shrink-0 text-brand-600" size={25} />
+            <div>
+              <p className="text-sm font-bold">FSC 금융소비자 보호 가이드라인</p>
+              <p className="mt-2 text-xs leading-6 text-muted">{finding.guideline}</p>
+            </div>
+          </div>
+          <button className="mt-6 flex w-full items-center justify-center gap-3 rounded-control border border-brand-700 py-3 text-sm font-semibold text-brand-700">
+            View recommendation <ArrowRight size={15} />
+          </button>
         </div>
-        <h3 className="mt-3 text-2xl font-bold">Preselected Option</h3>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          유료 옵션이 기본 선택되어 사용자의 능동적 선택을 침해할 수 있습니다.
-        </p>
-        <dl className="mt-6 divide-y divide-border border-y border-border text-sm">
-          <div className="grid grid-cols-2 py-3">
-            <dt className="text-muted">Element</dt>
-            <dd>Checkbox</dd>
-          </div>
-          <div className="grid grid-cols-2 py-3">
-            <dt className="text-muted">Default state</dt>
-            <dd className="font-semibold text-danger">Selected</dd>
-          </div>
-          <div className="grid grid-cols-2 py-3">
-            <dt className="text-muted">Cost impact</dt>
-            <dd className="font-semibold text-danger">+₩3,000 / month</dd>
-          </div>
-        </dl>
-        <div className="mt-6 flex gap-4 rounded-card border border-border p-5">
-          <FileText className="shrink-0 text-brand-600" size={25} />
-          <div>
-            <p className="text-sm font-bold">FSC 금융소비자 보호 가이드라인</p>
-            <p className="mt-2 text-xs leading-6 text-muted">
-              2.1.1. (사전선택 금지) 금융회사는 소비자가 추가 비용이 발생하는 서비스를 이용하지
-              않도록 기본 설정해서는 안 됩니다.
-            </p>
-          </div>
+      ) : (
+        <div className="flex min-h-96 flex-col items-center justify-center p-8 text-center">
+          <CheckCircle2 className="text-success" size={34} />
+          <h3 className="mt-4 font-bold">탐지된 항목이 없습니다</h3>
+          <p className="mt-2 text-sm text-muted">
+            이 Audit에서는 검토가 필요한 UX 패턴이 발견되지 않았습니다.
+          </p>
         </div>
-        <button className="mt-6 flex w-full items-center justify-center gap-3 rounded-control border border-brand-700 py-3 text-sm font-semibold text-brand-700">
-          View recommendation <ArrowRight size={15} />
-        </button>
-      </div>
+      )}
     </Card>
   );
 }
 
-function FindingsRow() {
+function FindingsRow({
+  findings,
+  selectedFindingId,
+  onSelect,
+}: {
+  findings: FindingDto[];
+  selectedFindingId?: string;
+  onSelect: (finding: FindingDto) => void;
+}) {
+  if (!findings.length) return null;
+
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.05fr]">
-      {findings.map((finding, index) => (
-        <Card className={cn("p-5", index === 0 && "border-danger/60")} key={finding.code}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-brand-700">{finding.code}</p>
-            <Badge variant={finding.variant}>{index === 2 ? "Minor" : "Review Needed"}</Badge>
-          </div>
-          <div className="mt-2 flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-bold">{finding.title}</h3>
-              <p className="mt-1 text-xs leading-5 text-muted">{finding.copy}</p>
+      {findings.slice(0, 3).map((finding) => (
+        <button className="text-left" key={finding.id} onClick={() => onSelect(finding)}>
+          <Card
+            className={cn(
+              "h-full p-5",
+              selectedFindingId === finding.id && "border-danger/60 ring-1 ring-danger/20",
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-brand-700">{finding.ruleId}</p>
+              <Badge
+                variant={
+                  finding.status === "resolved"
+                    ? "success"
+                    : finding.severity === "HIGH"
+                      ? "danger"
+                      : "warning"
+                }
+              >
+                {finding.status === "resolved" ? "Resolved" : "Review Needed"}
+              </Badge>
             </div>
-            <ChevronRight className="mt-1 shrink-0" size={16} />
-          </div>
-        </Card>
+            <div className="mt-2 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-bold">{finding.title}</h3>
+                <p className="mt-1 text-xs leading-5 text-muted">{finding.description}</p>
+              </div>
+              <ChevronRight className="mt-1 shrink-0" size={16} />
+            </div>
+          </Card>
+        </button>
       ))}
       <Card className="flex items-center justify-between p-5">
         <div>
           <p className="font-bold">View all findings</p>
-          <p className="mt-2 text-xs text-muted">7 findings</p>
+          <p className="mt-2 text-xs text-muted">{findings.length} findings</p>
         </div>
         <span className="flex size-8 items-center justify-center rounded-full bg-brand-700 text-white">
           <ArrowRight size={15} />
@@ -260,7 +276,13 @@ function FindingsRow() {
   );
 }
 
-function RecentAudits() {
+function RecentAudits({
+  audits,
+  onSelect,
+}: {
+  audits: AuditDto[];
+  onSelect: (auditId: string) => void;
+}) {
   return (
     <Card className="mt-4 overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -282,30 +304,47 @@ function RecentAudits() {
               )}
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td className="px-6 py-4 font-semibold">Insurance Signup Flow v1</td>
-              <td className="px-6 py-4">
-                <span className="flex items-center gap-2">
-                  <Smartphone size={14} /> Mobile Web
-                </span>
-              </td>
-              <td className="px-6 py-4">15</td>
-              <td className="px-6 py-4">
-                <span className="flex gap-5">
-                  <i className="not-italic text-danger">● 7</i>
-                  <i className="not-italic text-warning">● 2</i>
-                  <i className="not-italic text-success">● 5</i>
-                </span>
-              </td>
-              <td className="px-6 py-4">
-                <Badge variant="success">In Progress</Badge>
-              </td>
-              <td className="px-6 py-4">May 15, 2024 14:20</td>
-              <td className="px-6 py-4">
-                <MoreVertical size={15} />
-              </td>
-            </tr>
+          <tbody className="divide-y divide-border">
+            {audits.map((audit) => (
+              <tr
+                className="cursor-pointer hover:bg-brand-50/50"
+                key={audit.id}
+                onClick={() => onSelect(audit.id)}
+              >
+                <td className="px-6 py-4 font-semibold">{audit.name}</td>
+                <td className="px-6 py-4">
+                  <span className="flex items-center gap-2">
+                    <Smartphone size={14} /> Mobile Web
+                  </span>
+                </td>
+                <td className="px-6 py-4">{audit.screens.length}</td>
+                <td className="px-6 py-4">
+                  <span className="flex gap-5">
+                    <i className="not-italic text-danger">● {audit.findings.length}</i>
+                    <i className="not-italic text-warning">
+                      ● {audit.findings.filter((finding) => finding.status !== "resolved").length}
+                    </i>
+                    <i className="not-italic text-success">
+                      ● {audit.findings.filter((finding) => finding.status === "resolved").length}
+                    </i>
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <Badge variant="success">
+                    {audit.status === "completed" ? "Completed" : "In Progress"}
+                  </Badge>
+                </td>
+                <td className="px-6 py-4">
+                  {new Intl.DateTimeFormat("ko-KR", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(audit.updatedAt))}
+                </td>
+                <td className="px-6 py-4">
+                  <MoreVertical size={15} />
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -313,7 +352,115 @@ function RecentAudits() {
   );
 }
 
+function DashboardLoading() {
+  return (
+    <div aria-label="대시보드 불러오는 중" className="mx-auto max-w-[1500px] animate-pulse">
+      <div className="h-8 w-32 rounded bg-black/10" />
+      <div className="mt-6 h-44 rounded-card bg-brand-900/20" />
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_1fr]">
+        <div className="space-y-4">
+          <div className="h-56 rounded-card bg-black/5" />
+          <div className="h-96 rounded-card bg-black/5" />
+        </div>
+        <div className="h-[620px] rounded-card bg-black/5" />
+      </div>
+    </div>
+  );
+}
+
 export function OverviewPage() {
+  const { data, isPending, isError, refetch } = useDashboardSummary();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  if (isPending) {
+    return <DashboardLoading />;
+  }
+
+  if (isError) {
+    return (
+      <Card className="mx-auto mt-20 max-w-lg p-10 text-center">
+        <CircleAlert className="mx-auto text-danger" size={36} />
+        <h1 className="mt-5 text-xl font-bold">대시보드를 불러오지 못했습니다</h1>
+        <p className="mt-2 text-sm text-muted">잠시 후 다시 시도해주세요.</p>
+        <button
+          className="mx-auto mt-6 flex items-center gap-2 rounded-control bg-brand-700 px-5 py-3 text-sm font-semibold text-white"
+          onClick={() => refetch()}
+        >
+          <RefreshCw size={15} /> 다시 시도
+        </button>
+      </Card>
+    );
+  }
+
+  if (!data.audits.length) {
+    return (
+      <Card className="mx-auto mt-20 max-w-lg p-10 text-center">
+        <ShieldCheck className="mx-auto text-brand-500" size={38} />
+        <h1 className="mt-5 text-xl font-bold">등록된 Audit이 없습니다</h1>
+        <p className="mt-2 text-sm text-muted">첫 금융상품 Flow를 등록하고 UX 검토를 시작하세요.</p>
+      </Card>
+    );
+  }
+
+  const audit =
+    data.audits.find((item) => item.id === searchParams.get("audit")) ??
+    data.audits.find((item) => item.id === data.activeAuditId) ??
+    data.audits[0]!;
+  const screen =
+    audit.screens.find((item) => item.id === searchParams.get("screen")) ?? audit.screens[0]!;
+  const finding =
+    audit.findings.find((item) => item.id === searchParams.get("finding")) ?? audit.findings[0];
+  const findingPosition = finding ? audit.findings.findIndex((item) => item.id === finding.id) : 0;
+  const needsReview = audit.findings.filter((item) => item.status !== "resolved").length;
+  const resolved = audit.findings.filter((item) => item.status === "resolved").length;
+  const metrics = [
+    {
+      label: "Findings detected",
+      value: audit.findings.length,
+      icon: ShieldCheck,
+      action: "View all",
+      color: "text-brand-400",
+    },
+    {
+      label: "Need review",
+      value: needsReview,
+      icon: CircleAlert,
+      action: "Review now",
+      color: "text-warning",
+    },
+    {
+      label: "Resolved",
+      value: resolved,
+      icon: CheckCircle2,
+      action: "View resolved",
+      color: "text-white",
+    },
+  ];
+
+  function selectAudit(auditId: string) {
+    setSearchParams({ audit: auditId });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function selectScreen(screenId: string) {
+    const relatedFinding = audit.findings.find((item) => item.screenIds.includes(screenId));
+    setSearchParams((current) => {
+      current.set("audit", audit.id);
+      current.set("screen", screenId);
+      if (relatedFinding) current.set("finding", relatedFinding.id);
+      else current.delete("finding");
+      return current;
+    });
+  }
+
+  function selectFinding(nextFinding: FindingDto) {
+    setSearchParams({
+      audit: audit.id,
+      screen: nextFinding.screenIds[0] ?? screen.id,
+      finding: nextFinding.id,
+    });
+  }
+
   return (
     <div className="mx-auto max-w-[1500px]">
       <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
@@ -321,16 +468,20 @@ export function OverviewPage() {
         <div className="grid items-center gap-8 xl:grid-cols-[1fr_1.15fr]">
           <div>
             <Badge className="bg-brand-600 text-white">●&nbsp; In Progress</Badge>
-            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">Insurance Signup Flow v1</h2>
+            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">{audit.name}</h2>
             <div className="mt-5 flex flex-wrap gap-6 text-xs text-white/70">
               <span className="flex items-center gap-2">
                 <Smartphone size={15} /> Mobile Web
               </span>
               <span className="flex items-center gap-2">
-                <MonitorSmartphone size={15} /> 15 screens
+                <MonitorSmartphone size={15} /> {audit.screens.length} screens
               </span>
               <span className="flex items-center gap-2">
-                <CalendarDays size={15} /> May 15, 2024 14:20
+                <CalendarDays size={15} />{" "}
+                {new Intl.DateTimeFormat("ko-KR", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(new Date(audit.updatedAt))}
               </span>
             </div>
           </div>
@@ -352,15 +503,27 @@ export function OverviewPage() {
       </section>
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_1fr]">
         <div>
-          <FlowOverview />
-          <ScreenPreview />
+          <FlowOverview
+            screens={audit.screens}
+            selectedScreenId={screen.id}
+            onSelect={selectScreen}
+          />
+          <ScreenPreview screen={screen} />
         </div>
-        <FindingDetails />
+        <FindingDetails
+          finding={finding}
+          position={findingPosition}
+          total={audit.findings.length}
+        />
       </div>
       <div className="mt-4">
-        <FindingsRow />
+        <FindingsRow
+          findings={audit.findings}
+          selectedFindingId={finding?.id}
+          onSelect={selectFinding}
+        />
       </div>
-      <RecentAudits />
+      <RecentAudits audits={data.audits} onSelect={selectAudit} />
     </div>
   );
 }
