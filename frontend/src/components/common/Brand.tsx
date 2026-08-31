@@ -1,8 +1,13 @@
 import { Link } from "react-router-dom";
 
-export function Brand() {
+type BrandProps = { dark?: boolean };
+
+export function Brand({ dark = false }: BrandProps) {
   return (
-    <Link className="inline-flex items-center text-xl font-bold tracking-tight text-white" to="/">
+    <Link
+      className={`inline-flex items-center text-xl font-bold tracking-tight ${dark ? "text-text" : "text-white"}`}
+      to="/"
+    >
       Dark<span className="text-brand-400">Audit</span>
     </Link>
   );

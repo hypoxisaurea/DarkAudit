@@ -46,8 +46,27 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  ::selection {
+    color: white;
+    background: var(--color-brand-600);
+  }
+
   button,
   a {
     -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .page-container {
+    width: min(100% - 2rem, 1440px);
+    margin-inline: auto;
+  }
+
+  .subtle-grid {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 3%) 1px, transparent 1px);
+    background-size: 72px 72px;
   }
 }
