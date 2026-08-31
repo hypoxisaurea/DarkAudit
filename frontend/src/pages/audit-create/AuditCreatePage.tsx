@@ -22,6 +22,7 @@ import {
   useAnalysisStatus,
   useCreateAudit,
   useStartAnalysis,
+  useUploadAuditScreens,
 } from "@/features/audit-create/useAuditWorkflow";
 import { cn } from "@/lib/cn";
 
@@ -41,6 +42,7 @@ export function AuditCreatePage() {
   const [createdAuditId, setCreatedAuditId] = useState<string>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const createAudit = useCreateAudit();
+  const uploadScreens = useUploadAuditScreens();
   const startAnalysis = useStartAnalysis();
   const analysis = useAnalysisStatus(jobId);
   const {
@@ -87,12 +89,13 @@ export function AuditCreatePage() {
 
   async function submit(values: AuditForm) {
     if (!screens.length) return;
-    const audit = await createAudit.mutateAsync({
-      ...values,
+    const audit = await createAudit.mutateAsync(values);
+    await uploadScreens.mutateAsync({
+      auditId: audit.id,
       screens: screens.map((screen) => ({
         id: screen.id,
         flowStep: screen.flowStep,
-        fileName: screen.file.name,
+        file: screen.file,
       })),
     });
     setCreatedAuditId(audit.id);
@@ -102,6 +105,7 @@ export function AuditCreatePage() {
 
   const isWorking =
     createAudit.isPending ||
+    uploadScreens.isPending ||
     startAnalysis.isPending ||
     Boolean(jobId && analysis.data?.status !== "completed");
 
@@ -329,7 +333,7 @@ export function AuditCreatePage() {
               </div>
             )}
           </Card>
-          {(createAudit.isError || startAnalysis.isError) && (
+          {(createAudit.isError || uploadScreens.isError || startAnalysis.isError) && (
             <p className="mt-4 rounded-control bg-danger/10 p-4 text-sm text-danger">
               Audit 요청을 처리하지 못했습니다. 다시 시도해주세요.
             </p>

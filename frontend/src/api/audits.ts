@@ -1,21 +1,57 @@
 import { apiRequest } from "@/api/client";
+import { analysisJobSchema, auditSchema } from "@/api/schemas";
 import type {
-  AnalysisJobDto,
   AuditDto,
   CreateAuditDto,
   FindingStatus,
+  UploadAuditScreen,
 } from "@/entities/audit/types";
 
-export function createAudit(input: CreateAuditDto) {
-  return apiRequest<AuditDto>("/api/v1/audits", { method: "POST", body: JSON.stringify(input) });
+export async function createAudit(input: CreateAuditDto) {
+  return auditSchema.parse(
+    await apiRequest<unknown>("/api/v1/audits", { method: "POST", body: JSON.stringify(input) }),
+  );
 }
 
-export function startAnalysis(auditId: string) {
-  return apiRequest<AnalysisJobDto>(`/api/v1/audits/${auditId}/analyze`, { method: "POST" });
+export function uploadAuditScreens({
+  auditId,
+  screens,
+}: {
+  auditId: string;
+  screens: UploadAuditScreen[];
+}) {
+  const body = new FormData();
+  screens.forEach((screen) => {
+    body.append("files", screen.file, screen.file.name);
+    body.append("screen_ids", screen.id);
+    body.append("flow_steps", screen.flowStep);
+  });
+  return apiRequest<AuditDto>(`/api/v1/audits/${auditId}/screens`, {
+    method: "POST",
+    body,
+    headers: {
+      "X-DarkAudit-Screen-Metadata": encodeURIComponent(
+        JSON.stringify(
+          screens.map((screen) => ({
+            id: screen.id,
+            flowStep: screen.flowStep,
+            fileName: screen.file.name,
+          })),
+        ),
+      ),
+    },
+    timeoutMs: 120_000,
+  });
 }
 
-export function getAnalysisStatus(jobId: string) {
-  return apiRequest<AnalysisJobDto>(`/api/v1/analysis-jobs/${jobId}`);
+export async function startAnalysis(auditId: string) {
+  return analysisJobSchema.parse(
+    await apiRequest<unknown>(`/api/v1/audits/${auditId}/analyze`, { method: "POST" }),
+  );
+}
+
+export async function getAnalysisStatus(jobId: string) {
+  return analysisJobSchema.parse(await apiRequest<unknown>(`/api/v1/analysis-jobs/${jobId}`));
 }
 
 export function updateFindingStatus(findingId: string, status: FindingStatus) {

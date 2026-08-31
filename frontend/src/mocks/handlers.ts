@@ -6,11 +6,11 @@ import type { AnalysisJobDto, CreateAuditDto, FindingStatus } from "@/entities/a
 const jobs = new Map<string, AnalysisJobDto>();
 
 export const handlers = [
-  http.get("/api/v1/dashboard/summary", async () => {
+  http.get("*/api/v1/dashboard/summary", async () => {
     await delay(350);
     return HttpResponse.json(dashboardFixture);
   }),
-  http.post("/api/v1/audits", async ({ request }) => {
+  http.post("*/api/v1/audits", async ({ request }) => {
     const input = (await request.json()) as CreateAuditDto;
     const auditId = `audit-${crypto.randomUUID()}`;
     const audit = {
@@ -19,19 +19,31 @@ export const handlers = [
       platform: input.platform,
       status: "draft" as const,
       updatedAt: new Date().toISOString(),
-      screens: input.screens.map((screen, index) => ({
-        id: screen.id,
-        order: index + 1,
-        flowStep: screen.flowStep,
-        imageUrl: `/mock/${screen.fileName}`,
-        findingCount: 0,
-      })),
+      screens: [],
       findings: [],
     };
     dashboardFixture.audits.unshift(audit);
     return HttpResponse.json(audit, { status: 201 });
   }),
-  http.post("/api/v1/audits/:auditId/analyze", async ({ params }) => {
+  http.post("*/api/v1/audits/:auditId/screens", async ({ params, request }) => {
+    const audit = dashboardFixture.audits.find((item) => item.id === params.auditId);
+    if (!audit) return HttpResponse.json({ message: "Audit not found" }, { status: 404 });
+    const encodedMetadata = request.headers.get("X-DarkAudit-Screen-Metadata") ?? "%5B%5D";
+    const metadata = JSON.parse(decodeURIComponent(encodedMetadata)) as Array<{
+      id: string;
+      flowStep: string;
+      fileName: string;
+    }>;
+    audit.screens = metadata.map((screen, index) => ({
+      id: screen.id,
+      order: index + 1,
+      flowStep: screen.flowStep,
+      imageUrl: `/mock/${screen.fileName}`,
+      findingCount: 0,
+    }));
+    return HttpResponse.json(audit);
+  }),
+  http.post("*/api/v1/audits/:auditId/analyze", async ({ params }) => {
     const auditId = String(params.auditId);
     const job: AnalysisJobDto = {
       jobId: `job-${crypto.randomUUID()}`,
@@ -44,7 +56,7 @@ export const handlers = [
     if (audit) audit.status = "queued";
     return HttpResponse.json(job, { status: 202 });
   }),
-  http.get("/api/v1/analysis-jobs/:jobId", async ({ params }) => {
+  http.get("*/api/v1/analysis-jobs/:jobId", async ({ params }) => {
     await delay(250);
     const job = jobs.get(String(params.jobId));
     if (!job) return HttpResponse.json({ message: "Job not found" }, { status: 404 });
@@ -54,7 +66,7 @@ export const handlers = [
     if (audit) audit.status = job.status === "completed" ? "completed" : "analyzing";
     return HttpResponse.json(job);
   }),
-  http.patch("/api/v1/findings/:findingId", async ({ params, request }) => {
+  http.patch("*/api/v1/findings/:findingId", async ({ params, request }) => {
     const { status } = (await request.json()) as { status: FindingStatus };
     const finding = dashboardFixture.audits
       .flatMap((audit) => audit.findings)

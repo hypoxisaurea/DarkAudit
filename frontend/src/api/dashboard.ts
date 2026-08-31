@@ -1,6 +1,6 @@
 import { apiRequest } from "@/api/client";
-import type { DashboardSummaryDto } from "@/entities/audit/types";
+import { dashboardSummarySchema } from "@/api/schemas";
 
-export function getDashboardSummary() {
-  return apiRequest<DashboardSummaryDto>("/api/v1/dashboard/summary");
+export async function getDashboardSummary() {
+  return dashboardSummarySchema.parse(await apiRequest<unknown>("/api/v1/dashboard/summary"));
 }

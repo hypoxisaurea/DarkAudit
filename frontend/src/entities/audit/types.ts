@@ -49,8 +49,9 @@ export type DashboardSummaryDto = {
 export type CreateAuditDto = {
   name: string;
   platform: AuditDto["platform"];
-  screens: Array<{ id: string; flowStep: string; fileName: string }>;
 };
+
+export type UploadAuditScreen = { id: string; flowStep: string; file: File };
 
 export type AnalysisJobDto = {
   jobId: string;

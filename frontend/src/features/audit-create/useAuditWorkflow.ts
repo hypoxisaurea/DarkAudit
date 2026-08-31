@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createAudit, getAnalysisStatus, startAnalysis } from "@/api/audits";
+import { createAudit, getAnalysisStatus, startAnalysis, uploadAuditScreens } from "@/api/audits";
 import { dashboardKeys } from "@/features/audit-dashboard/useDashboardSummary";
 
 export function useCreateAudit() {
@@ -13,6 +13,10 @@ export function useCreateAudit() {
 
 export function useStartAnalysis() {
   return useMutation({ mutationFn: startAnalysis });
+}
+
+export function useUploadAuditScreens() {
+  return useMutation({ mutationFn: uploadAuditScreens });
 }
 
 export function useAnalysisStatus(jobId?: string) {
