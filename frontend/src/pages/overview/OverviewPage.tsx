@@ -314,7 +314,7 @@ function RecentAudits({
           View all audits <ArrowRight size={13} />
         </button>
       </div>
-      <div className="overflow-x-auto">
+      <div aria-label="최근 Audit 표" className="overflow-x-auto" tabIndex={0}>
         <table className="w-full min-w-[780px] text-left text-xs">
           <thead className="border-b border-border bg-black/[0.015] text-muted">
             <tr>
@@ -377,7 +377,11 @@ function RecentAudits({
 
 function DashboardLoading() {
   return (
-    <div aria-label="대시보드 불러오는 중" className="mx-auto max-w-[1500px] animate-pulse">
+    <div
+      aria-label="대시보드 불러오는 중"
+      className="mx-auto max-w-[1500px] animate-pulse"
+      role="status"
+    >
       <div className="h-8 w-32 rounded bg-black/10" />
       <div className="mt-6 h-44 rounded-card bg-brand-900/20" />
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_1fr]">

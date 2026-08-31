@@ -30,3 +30,16 @@ After FastAPI is running on port 8000, regenerate its TypeScript contract with:
 ```powershell
 npm run api:types
 ```
+
+## Quality checks
+
+```powershell
+npm run build
+npm run lint
+npm run test
+npm run test:e2e
+```
+
+Visual snapshots cover 1440px desktop and 390px mobile viewports. Run `npm run
+test:e2e:update` only after intentionally reviewing a UI change. Lighthouse expects a production
+preview on port 4173 and writes its report to `reports/lighthouse.json`.

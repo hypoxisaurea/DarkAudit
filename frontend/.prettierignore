@@ -3,3 +3,6 @@ coverage
 node_modules
 package-lock.json
 public/mockServiceWorker.js
+test-results
+playwright-report
+reports

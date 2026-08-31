@@ -5,7 +5,7 @@
 
   --color-brand-50: #f2f8f5;
   --color-brand-100: #e3f0ea;
-  --color-brand-400: #68ad96;
+  --color-brand-400: #5da188;
   --color-brand-500: #4f927d;
   --color-brand-600: #347563;
   --color-brand-700: #225f50;
@@ -16,10 +16,10 @@
   --color-surface: #ffffff;
   --color-border: #dfe5e2;
   --color-text: #121716;
-  --color-muted: #67716d;
-  --color-danger: #e5484d;
-  --color-warning: #d89b2b;
-  --color-success: #208463;
+  --color-muted: #59635f;
+  --color-danger: #b4232c;
+  --color-warning: #805500;
+  --color-success: #146c50;
 
   --radius-card: 0.75rem;
   --radius-control: 0.5rem;

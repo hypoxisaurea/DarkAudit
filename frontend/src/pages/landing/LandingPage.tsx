@@ -170,7 +170,7 @@ export function LandingPage() {
             </Button>
           </div>
         </header>
-        <div className="page-container grid items-center gap-16 py-16 lg:grid-cols-[0.85fr_1.15fr] lg:py-20">
+        <main className="page-container grid items-center gap-16 py-16 lg:grid-cols-[0.85fr_1.15fr] lg:py-20">
           <div>
             <p className="mb-6 text-sm font-semibold uppercase tracking-widest text-brand-400">
               Financial UX Review
@@ -205,7 +205,7 @@ export function LandingPage() {
             </p>
           </div>
           <ProductMockup />
-        </div>
+        </main>
       </section>
 
       <section className="page-container py-20 text-center" id="product">
