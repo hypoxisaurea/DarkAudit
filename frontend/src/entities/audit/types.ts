@@ -45,3 +45,16 @@ export type DashboardSummaryDto = {
   activeAuditId: string | null;
   audits: AuditDto[];
 };
+
+export type CreateAuditDto = {
+  name: string;
+  platform: AuditDto["platform"];
+  screens: Array<{ id: string; flowStep: string; fileName: string }>;
+};
+
+export type AnalysisJobDto = {
+  jobId: string;
+  auditId: string;
+  status: "queued" | "analyzing" | "completed" | "failed";
+  progress: number;
+};

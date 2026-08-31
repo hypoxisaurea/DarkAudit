@@ -2,20 +2,36 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
-import { LandingPage } from "@/pages/landing/LandingPage";
-import { OverviewPage } from "@/pages/overview/OverviewPage";
-
 export const router = createBrowserRouter([
   {
     element: <PublicLayout />,
-    children: [{ path: "/", element: <LandingPage /> }],
+    children: [
+      {
+        path: "/",
+        lazy: async () => ({
+          Component: (await import("@/pages/landing/LandingPage")).LandingPage,
+        }),
+      },
+    ],
   },
   {
     path: "/app",
     element: <AppLayout />,
     children: [
       { index: true, element: <Navigate to="overview" replace /> },
-      { path: "overview", element: <OverviewPage /> },
+      {
+        path: "overview",
+        lazy: async () => ({
+          Component: (await import("@/pages/overview/OverviewPage")).OverviewPage,
+        }),
+      },
+      { path: "audits", element: <Navigate to="/app/audits/new" replace /> },
+      {
+        path: "audits/new",
+        lazy: async () => ({
+          Component: (await import("@/pages/audit-create/AuditCreatePage")).AuditCreatePage,
+        }),
+      },
     ],
   },
 ]);

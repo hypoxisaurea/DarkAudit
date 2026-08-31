@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import type { AuditDto, AuditScreenDto, FindingDto } from "@/entities/audit/types";
 import { useDashboardSummary } from "@/features/audit-dashboard/useDashboardSummary";
+import { useFindingStatus } from "@/features/finding-review/useFindingStatus";
 import { cn } from "@/lib/cn";
 
 function MobileScreen({ complete = false }: { complete?: boolean }) {
@@ -157,6 +158,8 @@ function FindingDetails({
   position: number;
   total: number;
 }) {
+  const findingStatus = useFindingStatus();
+
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -203,6 +206,26 @@ function FindingDetails({
           </div>
           <button className="mt-6 flex w-full items-center justify-center gap-3 rounded-control border border-brand-700 py-3 text-sm font-semibold text-brand-700">
             View recommendation <ArrowRight size={15} />
+          </button>
+          <button
+            className={cn(
+              "mt-3 flex w-full items-center justify-center gap-2 rounded-control py-3 text-sm font-semibold text-white disabled:opacity-50",
+              finding.status === "resolved" ? "bg-muted" : "bg-brand-700",
+            )}
+            disabled={findingStatus.isPending}
+            onClick={() =>
+              findingStatus.mutate({
+                findingId: finding.id,
+                status: finding.status === "resolved" ? "reviewing" : "resolved",
+              })
+            }
+          >
+            {findingStatus.isPending ? (
+              <RefreshCw className="animate-spin" size={15} />
+            ) : (
+              <CheckCircle2 size={15} />
+            )}
+            {finding.status === "resolved" ? "검토 상태로 되돌리기" : "해결됨으로 표시"}
           </button>
         </div>
       ) : (

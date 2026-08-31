@@ -1,10 +1,66 @@
 import { delay, http, HttpResponse } from "msw";
 
 import { dashboardFixture } from "@/mocks/fixtures/dashboard";
+import type { AnalysisJobDto, CreateAuditDto, FindingStatus } from "@/entities/audit/types";
+
+const jobs = new Map<string, AnalysisJobDto>();
 
 export const handlers = [
   http.get("/api/v1/dashboard/summary", async () => {
     await delay(350);
     return HttpResponse.json(dashboardFixture);
+  }),
+  http.post("/api/v1/audits", async ({ request }) => {
+    const input = (await request.json()) as CreateAuditDto;
+    const auditId = `audit-${crypto.randomUUID()}`;
+    const audit = {
+      id: auditId,
+      name: input.name,
+      platform: input.platform,
+      status: "draft" as const,
+      updatedAt: new Date().toISOString(),
+      screens: input.screens.map((screen, index) => ({
+        id: screen.id,
+        order: index + 1,
+        flowStep: screen.flowStep,
+        imageUrl: `/mock/${screen.fileName}`,
+        findingCount: 0,
+      })),
+      findings: [],
+    };
+    dashboardFixture.audits.unshift(audit);
+    return HttpResponse.json(audit, { status: 201 });
+  }),
+  http.post("/api/v1/audits/:auditId/analyze", async ({ params }) => {
+    const auditId = String(params.auditId);
+    const job: AnalysisJobDto = {
+      jobId: `job-${crypto.randomUUID()}`,
+      auditId,
+      status: "queued",
+      progress: 5,
+    };
+    jobs.set(job.jobId, job);
+    const audit = dashboardFixture.audits.find((item) => item.id === auditId);
+    if (audit) audit.status = "queued";
+    return HttpResponse.json(job, { status: 202 });
+  }),
+  http.get("/api/v1/analysis-jobs/:jobId", async ({ params }) => {
+    await delay(250);
+    const job = jobs.get(String(params.jobId));
+    if (!job) return HttpResponse.json({ message: "Job not found" }, { status: 404 });
+    job.progress = Math.min(100, job.progress + 24);
+    job.status = job.progress >= 100 ? "completed" : "analyzing";
+    const audit = dashboardFixture.audits.find((item) => item.id === job.auditId);
+    if (audit) audit.status = job.status === "completed" ? "completed" : "analyzing";
+    return HttpResponse.json(job);
+  }),
+  http.patch("/api/v1/findings/:findingId", async ({ params, request }) => {
+    const { status } = (await request.json()) as { status: FindingStatus };
+    const finding = dashboardFixture.audits
+      .flatMap((audit) => audit.findings)
+      .find((item) => item.id === params.findingId);
+    if (!finding) return HttpResponse.json({ message: "Finding not found" }, { status: 404 });
+    finding.status = status;
+    return HttpResponse.json({ id: finding.id, status });
   }),
 ];

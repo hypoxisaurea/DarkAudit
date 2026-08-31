@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
     "@radix-ui/react-slot": "latest",
     "@tanstack/react-query": "latest",
     "class-variance-authority": "latest",
@@ -20,8 +21,10 @@
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "react-hook-form": "^7.87.0",
     "react-router-dom": "latest",
     "tailwind-merge": "latest",
+    "zod": "^4.5.4",
     "zustand": "latest"
   },
   "devDependencies": {
