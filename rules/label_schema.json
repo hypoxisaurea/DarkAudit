@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://darkaudit/schema/label.v1.json",
+  "title": "DarkAudit Ground Truth Label",
+  "description": "Synthetic Financial UI Dataset 의 정답 라벨 형식. 한 파일이 하나의 Flow(화면 묶음)를 기술한다.",
+  "type": "object",
+  "required": ["schema_version", "flow_id", "flow_type", "screens", "labels"],
+  "additionalProperties": false,
+
+  "properties": {
+    "schema_version": { "const": "1.0" },
+
+    "flow_id": {
+      "type": "string",
+      "description": "Flow 식별자. 예: ins-001-risky",
+      "pattern": "^[a-z0-9-]+$"
+    },
+
+    "variant": {
+      "type": "string",
+      "enum": ["risky", "clean"],
+      "description": "Counterfactual Pair 의 어느 쪽인지"
+    },
+
+    "pair_id": {
+      "type": "string",
+      "description": "짝을 이루는 risky/clean 의 공통 ID. Counterfactual Consistency 평가에 사용",
+      "pattern": "^[a-z0-9-]+$"
+    },
+
+    "sector": {
+      "type": "string",
+      "enum": ["insurance", "loan", "investment", "deposit"]
+    },
+
+    "flow_type": {
+      "type": "string",
+      "enum": ["join", "cancel"],
+      "description": "가입 Flow 인지 해지 Flow 인지. DA-06 판정에 필요"
+    },
+
+    "screens": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["screen_index", "image"],
+        "additionalProperties": false,
+        "properties": {
+          "screen_index": { "type": "integer", "minimum": 1 },
+          "image": { "type": "string", "description": "스크린샷 파일 경로" },
+          "viewport": {
+            "type": "object",
+            "required": ["width", "height"],
+            "properties": {
+              "width": { "type": "integer" },
+              "height": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+
+    "labels": {
+      "type": "array",
+      "description": "이 Flow 에 존재하는 정답 라벨. 위반이 없으면 빈 배열",
+      "items": { "$ref": "#/$defs/label" }
+    },
+
+    "deferred": {
+      "type": "array",
+      "description": "판단이 갈려 보류한 항목. 평가에서 제외되지만 기록은 남긴다",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "reason"],
+        "properties": {
+          "rule_id": { "type": "string" },
+          "screen_index": { "type": "integer" },
+          "reason": { "type": "string" },
+          "raised_by": { "type": "string" }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "element_ref": {
+      "type": "object",
+      "required": ["screen_index", "bbox"],
+      "additionalProperties": false,
+      "properties": {
+        "screen_index": { "type": "integer", "minimum": 1 },
+        "bbox": {
+          "type": "array",
+          "description": "[x, y, w, h] 정규화 좌표 0~1",
+          "items": { "type": "number", "minimum": 0, "maximum": 1 },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "text": {
+          "type": "string",
+          "description": "요소의 텍스트. 사람이 라벨을 검토할 때의 식별용"
+        },
+        "element_type": {
+          "type": "string",
+          "enum": ["button", "checkbox", "toggle", "radio", "text", "link", "modal", "banner", "input", "image"]
+        }
+      }
+    },
+
+    "label": {
+      "type": "object",
+      "required": ["rule_id", "label_unit", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "pattern": "^DA-\\d{2}$"
+        },
+
+        "label_unit": {
+          "type": "string",
+          "enum": ["element", "screen", "flow", "flow_pair"],
+          "description": "Rule Base 의 label_unit 과 일치해야 한다"
+        },
+
+        "primary": {
+          "$ref": "#/$defs/element_ref",
+          "description": "label_unit=element 일 때 필수. 문제의 대표 요소"
+        },
+
+        "related_elements": {
+          "type": "array",
+          "description": "관계를 구성하는 상대 요소들. Rule Base 의 related_required=true 인 유형은 최소 1개",
+          "items": { "$ref": "#/$defs/element_ref" }
+        },
+
+        "screen_index": {
+          "type": "integer",
+          "description": "label_unit=screen 일 때 필수"
+        },
+
+        "screen_indices": {
+          "type": "array",
+          "description": "label_unit=flow 일 때, 근거가 되는 화면들",
+          "items": { "type": "integer" }
+        },
+
+        "severity": {
+          "type": "string",
+          "enum": ["HIGH", "REVIEW", "LOW"],
+          "description": "유형 존재와 별개로 기록. 결합 판정 정확도를 따로 재기 위함"
+        },
+
+        "mitigated": {
+          "type": "boolean",
+          "default": false,
+          "description": "완화 요건을 충족한 경우 true. 이때 이 라벨은 negative 로 취급하되 구분해서 집계한다"
+        },
+
+        "combination_with": {
+          "type": "array",
+          "description": "severity 가 결합으로 승격된 경우 그 근거 rule_id 들",
+          "items": { "type": "string", "pattern": "^DA-\\d{2}$" }
+        },
+
+        "note": { "type": "string" }
+      },
+
+      "allOf": [
+        {
+          "if": { "properties": { "label_unit": { "const": "element" } } },
+          "then": { "required": ["primary"] }
+        },
+        {
+          "if": { "properties": { "label_unit": { "const": "screen" } } },
+          "then": { "required": ["screen_index"] }
+        },
+        {
+          "if": { "properties": { "label_unit": { "const": "flow" } } },
+          "then": { "required": ["screen_indices"] }
+        }
+      ]
+    }
+  }
+}

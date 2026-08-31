@@ -35,10 +35,13 @@ REQUIRED_FIELDS = [
     "standalone_sufficient",
     "combination_amplifiers",
     "mitigating_checks",
+    "label_unit",
+    "related_required",
 ]
 
 VALID_SCOPES = {"single_screen", "multi_screen", "dual_flow"}
 VALID_PRIORITIES = {"P0", "P1", "P2"}
+VALID_UNITS = {"element", "screen", "flow", "flow_pair"}
 
 
 def validate(doc: dict) -> list[str]:
@@ -80,6 +83,19 @@ def validate(doc: dict) -> list[str]:
         if not rule.get("semantic_checks"):
             errors.append(f"{rid}: semantic_checks 가 비어 있음")
 
+        if rule.get("label_unit") not in VALID_UNITS:
+            errors.append(f"{rid}: 잘못된 label_unit '{rule.get('label_unit')}'")
+
+        if not isinstance(rule.get("related_required"), bool):
+            errors.append(f"{rid}: related_required 는 bool 이어야 함")
+
+        # 관계가 없는 단위에 related 필수를 걸면 영우 라벨이 불가능해진다
+        if rule.get("related_required") and rule.get("label_unit") != "element":
+            errors.append(
+                f"{rid}: related_required=true 는 label_unit=element 에서만 가능 "
+                f"(현재 '{rule.get('label_unit')}')"
+            )
+
         if not isinstance(rule.get("standalone_sufficient"), bool):
             errors.append(f"{rid}: standalone_sufficient 는 bool 이어야 함")
 
@@ -120,7 +136,7 @@ def summarize(doc: dict) -> None:
     cats = doc["categories"]
 
     print(f"\n총 {len(rules)}개 규칙\n")
-    header = f"{'ID':<7} {'범주':<6} {'유형명':<18} {'범위':<13} {'우선':<4} {'단독':<4} {'det':>3} {'sem':>3}"
+    header = f"{'ID':<7} {'범주':<6} {'유형명':<18} {'범위':<13} {'우선':<4} {'단독':<4} {'라벨단위':<10} {'rel':<4} {'det':>3} {'sem':>3}"
     print(header)
     print("-" * len(header))
 
@@ -132,6 +148,8 @@ def summarize(doc: dict) -> None:
             f"{r['detection_scope']:<13} "
             f"{r['mvp_priority']:<4} "
             f"{'X' if r['standalone_sufficient'] else '결합':<4} "
+            f"{r['label_unit']:<10} "
+            f"{'필수' if r['related_required'] else '-':<4} "
             f"{len(r['deterministic_checks']):>3} "
             f"{len(r['semantic_checks']):>3}"
         )
