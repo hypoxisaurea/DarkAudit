@@ -16,11 +16,11 @@ import { Brand } from "@/components/common/Brand";
 import { cn } from "@/lib/cn";
 
 const navigation = [
-  { label: "Overview", icon: Home, to: "/app/overview" },
-  { label: "Audits", icon: ClipboardList, to: "/app/audits" },
-  { label: "Guidelines", icon: BookOpen, to: "/app/guidelines" },
-  { label: "Benchmark", icon: ChartNoAxesColumn, to: "/app/benchmark" },
-  { label: "Settings", icon: Settings, to: "/app/settings" },
+  { label: "대시보드", icon: Home, to: "/app/overview" },
+  { label: "진단 관리", icon: ClipboardList, to: "/app/audits" },
+  { label: "검토 기준", icon: BookOpen, to: "/app/guidelines" },
+  { label: "비교 분석", icon: ChartNoAxesColumn, to: "/app/benchmark" },
+  { label: "설정", icon: Settings, to: "/app/settings" },
 ];
 
 function Sidebar() {
@@ -55,7 +55,7 @@ function Sidebar() {
       <div className="mt-auto space-y-4">
         <div className="rounded-card border border-white/20 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck className="text-brand-400" size={21} /> Secure &amp; Compliant
+            <ShieldCheck className="text-brand-400" size={21} /> 안전한 규제 준수
           </p>
           <p className="mt-3 text-xs leading-5 text-white/55">
             금융보안 및 개인정보 보호 기준을 준수하여 안전하게 운영됩니다.
@@ -65,9 +65,9 @@ function Sidebar() {
         <button className="flex w-full items-center gap-3 rounded-card border border-white/20 p-4 text-left">
           <Building2 size={23} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">Acme Insurance</span>
+            <span className="block truncate text-sm font-semibold">다온손해보험</span>
             <span className="mt-1 inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/60">
-              Enterprise
+              기업용
             </span>
           </span>
           <ChevronDown size={16} />
@@ -93,8 +93,8 @@ function AppHeader() {
           HJ
         </span>
         <div className="hidden sm:block">
-          <p className="text-sm font-semibold">Hyunjin Kim</p>
-          <p className="text-xs text-muted">Compliance Manager</p>
+          <p className="text-sm font-semibold">김현진</p>
+          <p className="text-xs text-muted">준법감시 담당자</p>
         </div>
         <ChevronDown className="hidden text-muted sm:block" size={16} />
       </div>

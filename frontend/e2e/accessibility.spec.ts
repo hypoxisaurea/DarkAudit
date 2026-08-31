@@ -8,8 +8,8 @@ for (const route of ["/", "/app/overview", "/app/audits/new"]) {
       route === "/"
         ? /금융상품 UX를/
         : route === "/app/overview"
-          ? "Insurance Signup Flow v1"
-          : "금융상품 Flow 등록";
+          ? "보험 가입 흐름 v1"
+          : "금융상품 가입 흐름 등록";
     await page.getByRole("heading", { name: expectedHeading }).waitFor();
     const results = await new AxeBuilder({ page }).analyze();
     const serious = results.violations.filter((violation) =>

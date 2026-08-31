@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/cn";
 
 const auditSchema = z.object({
-  name: z.string().trim().min(2, "Audit 이름을 2자 이상 입력해주세요."),
+  name: z.string().trim().min(2, "진단 이름을 2자 이상 입력해주세요."),
   platform: z.enum(["mobile-web", "desktop-web", "app"]),
 });
 
@@ -57,7 +57,7 @@ export function AuditCreatePage() {
   function addFiles(files: FileList | File[]) {
     const images = Array.from(files)
       .filter((file) => file.type.startsWith("image/"))
-      .slice(0, Math.max(0, 15 - screens.length));
+      .slice(0, Math.max(0, 5 - screens.length));
     setScreens((current) => [
       ...current,
       ...images.map((file, index) => ({
@@ -128,11 +128,11 @@ export function AuditCreatePage() {
             )}
           </span>
           <h1 className="mt-6 text-2xl font-bold">
-            {completed ? "Audit 분석이 완료되었습니다" : "금융 UX를 분석하고 있습니다"}
+            {completed ? "진단이 완료되었습니다" : "금융 UX를 분석하고 있습니다"}
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted">
             {completed
-              ? "분석 결과와 개선 권고안을 대시보드에서 확인할 수 있습니다."
+              ? "진단 결과와 개선 권고안을 대시보드에서 확인할 수 있습니다."
               : "UI 요소, 문구, 선택 상태와 화면 간 변화를 기준에 따라 검토합니다."}
           </p>
           <div className="mx-auto mt-8 max-w-lg">
@@ -165,11 +165,11 @@ export function AuditCreatePage() {
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-text"
         to="/app/overview"
       >
-        <ArrowLeft size={15} /> Overview
+        <ArrowLeft size={15} /> 대시보드
       </Link>
       <div className="mt-4">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">New Audit</p>
-        <h1 className="mt-2 text-3xl font-bold">금융상품 Flow 등록</h1>
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">새 진단</p>
+        <h1 className="mt-2 text-3xl font-bold">금융상품 가입 흐름 등록</h1>
         <p className="mt-3 text-sm text-muted">
           실제 이용 순서대로 화면을 등록하면 AI가 전체 흐름을 함께 분석합니다.
         </p>
@@ -180,14 +180,14 @@ export function AuditCreatePage() {
         onSubmit={handleSubmit(submit)}
       >
         <Card className="h-fit p-6">
-          <h2 className="font-bold">Audit 정보</h2>
+          <h2 className="font-bold">진단 정보</h2>
           <label className="mt-6 block text-sm font-semibold" htmlFor="audit-name">
-            Audit 이름
+            진단 이름
           </label>
           <input
             className="mt-2 w-full rounded-control border border-border px-4 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             id="audit-name"
-            placeholder="예: 보험 가입 Flow v1"
+            placeholder="예: 보험 가입 흐름 v1"
             {...register("name")}
           />
           {errors.name && <p className="mt-2 text-xs text-danger">{errors.name.message}</p>}
@@ -199,13 +199,12 @@ export function AuditCreatePage() {
             id="platform"
             {...register("platform")}
           >
-            <option value="mobile-web">Mobile Web</option>
-            <option value="desktop-web">Desktop Web</option>
-            <option value="app">Mobile App</option>
+            <option value="mobile-web">모바일 웹</option>
+            <option value="desktop-web">데스크톱 웹</option>
+            <option value="app">모바일 앱</option>
           </select>
           <div className="mt-6 rounded-control bg-brand-50 p-4 text-xs leading-6 text-brand-900">
-            최대 15개 화면을 등록할 수 있습니다. AI 분석 요청은 백엔드에서 적절한 단위로 나누어
-            처리합니다.
+            한 번의 진단에 최대 5개 화면을 등록할 수 있습니다.
           </div>
         </Card>
 
@@ -213,8 +212,8 @@ export function AuditCreatePage() {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-bold">Flow 화면</h2>
-                <p className="mt-1 text-xs text-muted">{screens.length} / 15 screens</p>
+                <h2 className="font-bold">가입 흐름 화면</h2>
+                <p className="mt-1 text-xs text-muted">{screens.length} / 5개 화면</p>
               </div>
               {screens.length > 0 && (
                 <Button
@@ -335,7 +334,7 @@ export function AuditCreatePage() {
           </Card>
           {(createAudit.isError || uploadScreens.isError || startAnalysis.isError) && (
             <p className="mt-4 rounded-control bg-danger/10 p-4 text-sm text-danger">
-              Audit 요청을 처리하지 못했습니다. 다시 시도해주세요.
+              진단 요청을 처리하지 못했습니다. 다시 시도해주세요.
             </p>
           )}
           <div className="mt-5 flex justify-end">

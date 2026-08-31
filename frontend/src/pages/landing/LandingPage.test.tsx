@@ -12,7 +12,7 @@ describe("LandingPage", () => {
     );
 
     expect(screen.getByRole("heading", { name: /금융상품 UX를/ })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Audit 시작하기" })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "진단 시작하기" })[0]).toHaveAttribute(
       "href",
       "/app/overview",
     );

@@ -3,13 +3,13 @@ import { expect, test } from "@playwright/test";
 test("landing page opens the audit dashboard", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /금융상품 UX를/ })).toBeVisible();
-  await page.getByRole("link", { name: "Audit 시작하기" }).first().click();
-  await expect(page.getByRole("heading", { name: "Insurance Signup Flow v1" })).toBeVisible();
+  await page.getByRole("link", { name: "진단 시작하기" }).first().click();
+  await expect(page.getByRole("heading", { name: "보험 가입 흐름 v1" })).toBeVisible();
 });
 
 test("user creates an audit and completes analysis", async ({ page }) => {
   await page.goto("/app/audits/new");
-  await page.getByLabel("Audit 이름").fill("Playwright 가입 Flow");
+  await page.getByLabel("진단 이름").fill("Playwright 가입 흐름");
   await page.locator('input[type="file"]').setInputFiles({
     name: "option-screen.png",
     mimeType: "image/png",
@@ -20,14 +20,14 @@ test("user creates an audit and completes analysis", async ({ page }) => {
   });
   await page.getByRole("button", { name: "분석 시작하기" }).click();
   await expect(page.getByRole("heading", { name: "금융 UX를 분석하고 있습니다" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Audit 분석이 완료되었습니다" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "진단이 완료되었습니다" })).toBeVisible({
     timeout: 15_000,
   });
 });
 
 test("finding can be marked as resolved", async ({ page }) => {
   await page.goto("/app/overview?finding=finding-preselected-option");
-  await expect(page.getByText("Needs Review").first()).toBeVisible();
+  await expect(page.getByText("검토 필요").first()).toBeVisible();
   await page.getByRole("button", { name: "해결됨으로 표시" }).click();
-  await expect(page.getByText("Resolved").first()).toBeVisible();
+  await expect(page.getByText("해결됨").first()).toBeVisible();
 });

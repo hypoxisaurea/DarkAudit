@@ -90,9 +90,9 @@ function FlowOverview({
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold">Audit flow overview</h2>
+        <h2 className="text-sm font-bold">가입 흐름 요약</h2>
         <button className="flex items-center gap-2 rounded-control border border-border px-3 py-2 text-xs font-semibold text-brand-700">
-          View full flow <ArrowRight size={13} />
+          전체 흐름 보기 <ArrowRight size={13} />
         </button>
       </div>
       <div className="mt-7 grid grid-cols-5 gap-2 overflow-x-auto">
@@ -130,9 +130,9 @@ function FlowOverview({
 function ScreenPreview({ screen }: { screen: AuditScreenDto }) {
   return (
     <Card className="relative mt-4 min-h-[380px] overflow-hidden p-5">
-      <h2 className="text-sm font-bold">Screen preview</h2>
+      <h2 className="text-sm font-bold">화면 미리보기</h2>
       <div className="absolute inset-x-0 bottom-0 top-14 flex items-end justify-center bg-gradient-to-b from-white to-brand-50/60">
-        <MobileScreen complete={screen.flowStep === "Complete"} />
+        <MobileScreen complete={screen.flowStep === "완료"} />
       </div>
       <div className="absolute right-4 top-20 overflow-hidden rounded-control border border-border bg-white shadow-sm">
         {[ZoomIn, ZoomOut, Search, Expand].map((Icon, index) => (
@@ -163,7 +163,7 @@ function FindingDetails({
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h2 className="text-sm font-bold">Finding details</h2>
+        <h2 className="text-sm font-bold">탐지 항목 상세</h2>
         <div className="flex items-center gap-3 text-sm">
           <ChevronLeft size={15} />
           <span>
@@ -178,34 +178,34 @@ function FindingDetails({
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-brand-700">{finding.ruleId}</p>
             <Badge variant={finding.status === "resolved" ? "success" : "danger"}>
-              ●&nbsp; {finding.status === "resolved" ? "Resolved" : "Needs Review"}
+              ●&nbsp; {finding.status === "resolved" ? "해결됨" : "검토 필요"}
             </Badge>
           </div>
           <h3 className="mt-3 text-2xl font-bold">{finding.title}</h3>
           <p className="mt-3 text-sm leading-6 text-muted">{finding.description}</p>
           <dl className="mt-6 divide-y divide-border border-y border-border text-sm">
             <div className="grid grid-cols-2 py-3">
-              <dt className="text-muted">Element</dt>
+              <dt className="text-muted">대상 요소</dt>
               <dd>{finding.element}</dd>
             </div>
             <div className="grid grid-cols-2 py-3">
-              <dt className="text-muted">Default state</dt>
+              <dt className="text-muted">기본 상태</dt>
               <dd className="font-semibold text-danger">{finding.defaultState ?? "-"}</dd>
             </div>
             <div className="grid grid-cols-2 py-3">
-              <dt className="text-muted">Cost impact</dt>
+              <dt className="text-muted">추가 비용</dt>
               <dd className="font-semibold text-danger">{finding.costImpact ?? "-"}</dd>
             </div>
           </dl>
           <div className="mt-6 flex gap-4 rounded-card border border-border p-5">
             <FileText className="shrink-0 text-brand-600" size={25} />
             <div>
-              <p className="text-sm font-bold">FSC 금융소비자 보호 가이드라인</p>
+              <p className="text-sm font-bold">금융위원회 금융소비자 보호 가이드라인</p>
               <p className="mt-2 text-xs leading-6 text-muted">{finding.guideline}</p>
             </div>
           </div>
           <button className="mt-6 flex w-full items-center justify-center gap-3 rounded-control border border-brand-700 py-3 text-sm font-semibold text-brand-700">
-            View recommendation <ArrowRight size={15} />
+            개선 권고안 보기 <ArrowRight size={15} />
           </button>
           <button
             className={cn(
@@ -233,7 +233,7 @@ function FindingDetails({
           <CheckCircle2 className="text-success" size={34} />
           <h3 className="mt-4 font-bold">탐지된 항목이 없습니다</h3>
           <p className="mt-2 text-sm text-muted">
-            이 Audit에서는 검토가 필요한 UX 패턴이 발견되지 않았습니다.
+            이 진단에서는 검토가 필요한 UX 패턴이 발견되지 않았습니다.
           </p>
         </div>
       )}
@@ -273,7 +273,7 @@ function FindingsRow({
                       : "warning"
                 }
               >
-                {finding.status === "resolved" ? "Resolved" : "Review Needed"}
+                {finding.status === "resolved" ? "해결됨" : "검토 필요"}
               </Badge>
             </div>
             <div className="mt-2 flex items-start justify-between gap-3">
@@ -288,8 +288,8 @@ function FindingsRow({
       ))}
       <Card className="flex items-center justify-between p-5">
         <div>
-          <p className="font-bold">View all findings</p>
-          <p className="mt-2 text-xs text-muted">{findings.length} findings</p>
+          <p className="font-bold">탐지 항목 전체 보기</p>
+          <p className="mt-2 text-xs text-muted">총 {findings.length}개</p>
         </div>
         <span className="flex size-8 items-center justify-center rounded-full bg-brand-700 text-white">
           <ArrowRight size={15} />
@@ -309,16 +309,16 @@ function RecentAudits({
   return (
     <Card className="mt-4 overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h2 className="text-sm font-bold">Recent audits</h2>
+        <h2 className="text-sm font-bold">최근 진단</h2>
         <button className="flex items-center gap-2 text-xs font-semibold text-brand-700">
-          View all audits <ArrowRight size={13} />
+          전체 진단 보기 <ArrowRight size={13} />
         </button>
       </div>
-      <div aria-label="최근 Audit 표" className="overflow-x-auto" tabIndex={0}>
+      <div aria-label="최근 진단 표" className="overflow-x-auto" tabIndex={0}>
         <table className="w-full min-w-[780px] text-left text-xs">
           <thead className="border-b border-border bg-black/[0.015] text-muted">
             <tr>
-              {["Audit name", "Platform", "Screens", "Findings", "Status", "Last updated", ""].map(
+              {["진단 이름", "플랫폼", "화면", "탐지 항목", "상태", "최근 수정", ""].map(
                 (head) => (
                   <th className="px-6 py-3 font-medium" key={head}>
                     {head}
@@ -337,7 +337,7 @@ function RecentAudits({
                 <td className="px-6 py-4 font-semibold">{audit.name}</td>
                 <td className="px-6 py-4">
                   <span className="flex items-center gap-2">
-                    <Smartphone size={14} /> Mobile Web
+                    <Smartphone size={14} /> 모바일 웹
                   </span>
                 </td>
                 <td className="px-6 py-4">{audit.screens.length}</td>
@@ -354,7 +354,7 @@ function RecentAudits({
                 </td>
                 <td className="px-6 py-4">
                   <Badge variant="success">
-                    {audit.status === "completed" ? "Completed" : "In Progress"}
+                    {audit.status === "completed" ? "완료" : "진행 중"}
                   </Badge>
                 </td>
                 <td className="px-6 py-4">
@@ -423,8 +423,10 @@ export function OverviewPage() {
     return (
       <Card className="mx-auto mt-20 max-w-lg p-10 text-center">
         <ShieldCheck className="mx-auto text-brand-500" size={38} />
-        <h1 className="mt-5 text-xl font-bold">등록된 Audit이 없습니다</h1>
-        <p className="mt-2 text-sm text-muted">첫 금융상품 Flow를 등록하고 UX 검토를 시작하세요.</p>
+        <h1 className="mt-5 text-xl font-bold">등록된 진단이 없습니다</h1>
+        <p className="mt-2 text-sm text-muted">
+          첫 금융상품 가입 흐름을 등록하고 UX 검토를 시작하세요.
+        </p>
       </Card>
     );
   }
@@ -442,24 +444,24 @@ export function OverviewPage() {
   const resolved = audit.findings.filter((item) => item.status === "resolved").length;
   const metrics = [
     {
-      label: "Findings detected",
+      label: "탐지된 항목",
       value: audit.findings.length,
       icon: ShieldCheck,
-      action: "View all",
+      action: "전체 보기",
       color: "text-brand-400",
     },
     {
-      label: "Need review",
+      label: "검토 필요",
       value: needsReview,
       icon: CircleAlert,
-      action: "Review now",
+      action: "지금 검토",
       color: "text-warning",
     },
     {
-      label: "Resolved",
+      label: "해결됨",
       value: resolved,
       icon: CheckCircle2,
-      action: "View resolved",
+      action: "해결 항목 보기",
       color: "text-white",
     },
   ];
@@ -490,18 +492,18 @@ export function OverviewPage() {
 
   return (
     <div className="mx-auto max-w-[1500px]">
-      <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
+      <h1 className="text-2xl font-bold tracking-tight">대시보드</h1>
       <section className="subtle-grid mt-6 overflow-hidden rounded-card bg-brand-900 p-6 text-white lg:p-8">
         <div className="grid items-center gap-8 xl:grid-cols-[1fr_1.15fr]">
           <div>
-            <Badge className="bg-brand-600 text-white">●&nbsp; In Progress</Badge>
+            <Badge className="bg-brand-600 text-white">●&nbsp; 진행 중</Badge>
             <h2 className="mt-4 text-2xl font-bold sm:text-3xl">{audit.name}</h2>
             <div className="mt-5 flex flex-wrap gap-6 text-xs text-white/70">
               <span className="flex items-center gap-2">
-                <Smartphone size={15} /> Mobile Web
+                <Smartphone size={15} /> 모바일 웹
               </span>
               <span className="flex items-center gap-2">
-                <MonitorSmartphone size={15} /> {audit.screens.length} screens
+                <MonitorSmartphone size={15} /> 화면 {audit.screens.length}개
               </span>
               <span className="flex items-center gap-2">
                 <CalendarDays size={15} />{" "}

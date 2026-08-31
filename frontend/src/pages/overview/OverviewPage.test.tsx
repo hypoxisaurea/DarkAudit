@@ -23,12 +23,12 @@ describe("OverviewPage", () => {
 
     expect(screen.getByLabelText("대시보드 불러오는 중")).toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Insurance Signup Flow v1" }),
+      await screen.findByRole("heading", { name: "보험 가입 흐름 v1" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByText("Savings Account Flow v2"));
+    await user.click(screen.getByText("적금 가입 흐름 v2"));
 
-    expect(screen.getByRole("heading", { name: "Savings Account Flow v2" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "적금 가입 흐름 v2" })).toBeInTheDocument();
     expect(screen.getByText("탐지된 항목이 없습니다")).toBeInTheDocument();
   });
 });

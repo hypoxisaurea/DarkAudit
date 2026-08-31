@@ -17,7 +17,7 @@ describe("AuditCreatePage", () => {
       </QueryClientProvider>,
     );
 
-    await user.type(screen.getByLabelText("Audit 이름"), "테스트 가입 Flow");
+    await user.type(screen.getByLabelText("진단 이름"), "테스트 가입 흐름");
     const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')!;
     await user.upload(fileInput, new File(["screen"], "screen.png", { type: "image/png" }));
     await user.click(screen.getByRole("button", { name: "분석 시작하기" }));
@@ -28,7 +28,7 @@ describe("AuditCreatePage", () => {
     expect(
       await screen.findByRole(
         "heading",
-        { name: "Audit 분석이 완료되었습니다" },
+        { name: "진단이 완료되었습니다" },
         { timeout: 7_000 },
       ),
     ).toBeInTheDocument();

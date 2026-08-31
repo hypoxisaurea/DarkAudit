@@ -73,22 +73,22 @@ function ProductMockup() {
           <div className="bg-brand-950 p-4 text-white">
             <p className="text-xs font-bold">⌂ DarkAudit</p>
             <div className="mt-6 space-y-3 text-[9px] text-white/50">
-              <p className="rounded bg-brand-600 px-2 py-2 text-white">Overview</p>
-              <p className="px-2">Audits</p>
-              <p className="px-2">Guidelines</p>
-              <p className="px-2">Settings</p>
+              <p className="rounded bg-brand-600 px-2 py-2 text-white">대시보드</p>
+              <p className="px-2">진단 관리</p>
+              <p className="px-2">검토 기준</p>
+              <p className="px-2">설정</p>
             </div>
           </div>
           <div className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold">Overview</p>
+              <p className="text-xs font-bold">대시보드</p>
               <span className="rounded bg-brand-950 px-2 py-1 text-[7px] text-white">
-                + New Audit
+                + 새 진단
               </span>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2">
               {[
-                ["총 Audit", "12"],
+                ["전체 진단", "12"],
                 ["검토 필요", "18"],
                 ["높은 우선 검토", "4"],
               ].map(([label, value]) => (
@@ -98,9 +98,9 @@ function ProductMockup() {
                 </div>
               ))}
             </div>
-            <p className="mt-5 text-[10px] font-bold">최근 Audit</p>
+            <p className="mt-5 text-[10px] font-bold">최근 진단</p>
             <div className="mt-2 divide-y divide-border rounded border border-border text-[7px]">
-              {["보험 가입 Flow v1", "적금 가입 Flow v2", "대출 신청 Flow v1"].map(
+              {["보험 가입 흐름 v1", "적금 가입 흐름 v2", "대출 신청 흐름 v1"].map(
                 (name, index) => (
                   <div className="grid grid-cols-[1fr_auto] items-center gap-2 p-3" key={name}>
                     <span>{name}</span>
@@ -166,14 +166,14 @@ export function LandingPage() {
               로그인
             </Button>
             <Button asChild>
-              <Link to="/app/overview">Audit 시작하기</Link>
+              <Link to="/app/overview">진단 시작하기</Link>
             </Button>
           </div>
         </header>
         <main className="page-container grid items-center gap-16 py-16 lg:grid-cols-[0.85fr_1.15fr] lg:py-20">
           <div>
             <p className="mb-6 text-sm font-semibold uppercase tracking-widest text-brand-400">
-              Financial UX Review
+              금융 UX 사전 점검
             </p>
             <h1 className="max-w-2xl text-4xl font-bold leading-[1.25] tracking-tight sm:text-5xl xl:text-6xl">
               금융상품 UX를
@@ -189,7 +189,7 @@ export function LandingPage() {
             <div className="mt-9 flex flex-wrap items-center gap-4">
               <Button asChild variant="secondary">
                 <Link to="/app/overview">
-                  Audit 시작하기 <ArrowRight size={17} />
+                  진단 시작하기 <ArrowRight size={17} />
                 </Link>
               </Button>
               <a
@@ -209,7 +209,7 @@ export function LandingPage() {
       </section>
 
       <section className="page-container py-20 text-center" id="product">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Why DarkAudit</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">DarkAudit이 필요한 이유</p>
         <h2 className="mt-4 text-3xl font-bold leading-tight">
           작은 UI 차이가
           <br />
@@ -236,7 +236,7 @@ export function LandingPage() {
         <div className="page-container grid items-center gap-12 lg:grid-cols-[0.9fr_0.8fr_1.2fr]">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-brand-600">
-              Standard Based Review
+              공신력 있는 검토 기준
             </p>
             <h2 className="mt-4 text-3xl font-bold leading-tight">
               금융위원회 공식 기준을
@@ -287,14 +287,14 @@ export function LandingPage() {
       </section>
 
       <section className="page-container py-20 text-center" id="process">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">How It Works</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">이용 방법</p>
         <h2 className="mt-3 text-3xl font-bold">3단계로 금융 UX를 검토합니다.</h2>
         <div className="mt-14 grid gap-8 text-left md:grid-cols-3">
           {[
             [
               Upload,
               "01",
-              "Flow 등록",
+              "가입 흐름 등록",
               "금융상품의 가입 및 이용 화면을 실제 사용 순서대로 등록합니다.",
             ],
             [
@@ -336,7 +336,7 @@ export function LandingPage() {
         </p>
         <Button asChild className="mt-6">
           <Link to="/app/overview">
-            Audit 시작하기 <ArrowRight size={17} />
+            진단 시작하기 <ArrowRight size={17} />
           </Link>
         </Button>
       </section>
