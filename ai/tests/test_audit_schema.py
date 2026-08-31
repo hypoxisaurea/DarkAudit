@@ -1,35 +1,39 @@
+import tempfile
 import unittest
+from pathlib import Path
+from ai.pipeline.baseline import BaselineAuditPipeline
+from ai.schemas.audit_schema import AuditScreen, LLMAuditOutput, LLMAuditRequest
 
-from ai.schemas.audit_schema import LLMAuditOutput
+def output(detections=None):
+    return {"audit_id": "audit_1", "schema_version": "1.0",
+            "screens": [{"screen_id": "screen_01", "flow_step": "부가서비스"}],
+            "detections": detections or []}
 
-
-VALID = {
-    "screen_id": "screen_03", "flow_step": "부가서비스",
-    "detections": [{
-        "risk_type": "PRESELECTED_OPTION", "risk_name": "특정옵션의 사전선택",
-        "where": {"element": "자동결제 동의 checkbox", "location": "화면 중앙"},
-        "what": "사용자 입력 전에 체크되어 있음", "observation": "checked 상태가 true임",
-        "rule_id": "DA-04", "why": "명시적 선택 없이 옵션 수용을 유도할 수 있음",
-        "severity": "HIGH", "confidence": 0.91, "fix": "기본값을 미선택으로 변경"
-    }]
-}
-
+class FakeProvider:
+    def __init__(self, result): self.result, self.rules = result, None
+    def analyze(self, request, system_prompt, audit_prompt, rules, output_schema):
+        self.rules = rules
+        return self.result
 
 class AuditSchemaTest(unittest.TestCase):
-    def test_valid_contract(self):
-        self.assertEqual(LLMAuditOutput.from_dict(VALID).detections[0].rule_id, "DA-04")
-
-    def test_rejects_wrong_rule_mapping(self):
-        detection = {**VALID["detections"][0], "rule_id": "DA-03"}
-        with self.assertRaises(ValueError):
-            LLMAuditOutput.from_dict({**VALID, "detections": [detection]})
+    def test_valid_empty_contract(self):
+        self.assertEqual(LLMAuditOutput.from_dict(output()).detections, ())
 
     def test_rejects_high_standalone_emotional_language(self):
-        detection = {**VALID["detections"][0], "risk_type": "EMOTIONAL_LANGUAGE",
-                     "risk_name": "감정적 언어", "rule_id": "DA-12"}
-        with self.assertRaises(ValueError):
-            LLMAuditOutput.from_dict({**VALID, "detections": [detection]})
+        detection = {"risk_type": "EMOTIONAL_LANGUAGE", "risk_name": "감정적 언어",
+                     "where": {"screen_ids": ["screen_01"], "element": "거절 버튼", "location": "하단"},
+                     "what": "감정 표현", "observation": "혜택을 포기", "rule_id": "DA-12",
+                     "why": "손실을 자극", "severity": "HIGH", "confidence": .9, "fix": "중립화"}
+        with self.assertRaises(ValueError): LLMAuditOutput.from_dict(output([detection]))
 
+    def test_baseline_passes_only_mvp_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "screen.png"
+            image.write_bytes(b"png")
+            request = LLMAuditRequest("audit_1", (AuditScreen("screen_01", "부가서비스", image),))
+            provider = FakeProvider(output())
+            result = BaselineAuditPipeline(provider).analyze(request)
+            self.assertEqual(result.audit_id, "audit_1")
+            self.assertEqual({rule["rule_id"] for rule in provider.rules}, {"DA-03", "DA-04", "DA-12", "DA-15"})
 
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == "__main__": unittest.main()

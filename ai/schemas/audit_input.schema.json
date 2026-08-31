@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DarkAudit Audit Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["audit_id", "schema_version", "screens"],
+  "properties": {
+    "audit_id": {"type": "string", "minLength": 1},
+    "schema_version": {"const": "1.0"},
+    "screens": {
+      "type": "array", "minItems": 1, "maxItems": 5,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["screen_id", "flow_step", "image"],
+        "properties": {
+          "screen_id": {"type": "string", "minLength": 1},
+          "flow_step": {"type": "string", "minLength": 1},
+          "image": {"type": "string", "description": "Upload reference, URL, or local CLI path"}
+        }
+      }
+    }
+  }
+}

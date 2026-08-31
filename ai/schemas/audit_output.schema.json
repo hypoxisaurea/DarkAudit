@@ -1,38 +1,33 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://darkaudit.local/schemas/audit-output-v1.json",
-  "title": "DarkAudit LLM Output v1",
+  "title": "DarkAudit Audit Output v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["screen_id", "flow_step", "detections"],
+  "required": ["audit_id", "schema_version", "screens", "detections"],
   "properties": {
-    "screen_id": {"type": "string", "minLength": 1},
-    "flow_step": {"type": "string", "minLength": 1},
+    "audit_id": {"type": "string", "minLength": 1},
+    "schema_version": {"const": "1.0"},
+    "screens": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/screen"}},
     "detections": {"type": "array", "items": {"$ref": "#/$defs/detection"}}
   },
   "$defs": {
-    "where": {
-      "type": "object", "additionalProperties": false,
-      "required": ["element", "location"],
-      "properties": {"element": {"type": "string", "minLength": 1}, "location": {"type": "string", "minLength": 1}}
-    },
+    "screen": {"type": "object", "additionalProperties": false, "required": ["screen_id", "flow_step"], "properties": {"screen_id": {"type": "string", "minLength": 1}, "flow_step": {"type": "string", "minLength": 1}}},
+    "where": {"type": "object", "additionalProperties": false, "required": ["screen_ids", "element", "location"], "properties": {"screen_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "element": {"type": "string", "minLength": 1}, "location": {"type": "string", "minLength": 1}}},
     "detection": {
       "type": "object", "additionalProperties": false,
       "required": ["risk_type", "risk_name", "where", "what", "observation", "rule_id", "why", "severity", "confidence", "fix"],
       "properties": {
         "risk_type": {"enum": ["PRESELECTED_OPTION", "VISUAL_HIERARCHY_DISTORTION", "EMOTIONAL_LANGUAGE", "SEQUENTIAL_PRICE_DISCLOSURE"]},
         "risk_name": {"enum": ["특정옵션의 사전선택", "잘못된 계층구조", "감정적 언어", "순차공개 가격책정"]},
-        "where": {"$ref": "#/$defs/where"},
-        "what": {"type": "string", "minLength": 1}, "observation": {"type": "string", "minLength": 1},
-        "rule_id": {"enum": ["DA-03", "DA-04", "DA-12", "DA-15"]},
-        "why": {"type": "string", "minLength": 1}, "severity": {"enum": ["REVIEW", "HIGH"]},
-        "confidence": {"type": "number", "minimum": 0, "maximum": 1}, "fix": {"type": "string", "minLength": 1}
+        "where": {"$ref": "#/$defs/where"}, "what": {"type": "string", "minLength": 1}, "observation": {"type": "string", "minLength": 1},
+        "rule_id": {"enum": ["DA-03", "DA-04", "DA-12", "DA-15"]}, "why": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["REVIEW", "HIGH"]}, "confidence": {"type": "number", "minimum": 0, "maximum": 1}, "fix": {"type": "string", "minLength": 1}
       },
       "allOf": [
         {"if": {"properties": {"risk_type": {"const": "PRESELECTED_OPTION"}}}, "then": {"properties": {"rule_id": {"const": "DA-04"}, "risk_name": {"const": "특정옵션의 사전선택"}}}},
         {"if": {"properties": {"risk_type": {"const": "VISUAL_HIERARCHY_DISTORTION"}}}, "then": {"properties": {"rule_id": {"const": "DA-03"}, "risk_name": {"const": "잘못된 계층구조"}}}},
         {"if": {"properties": {"risk_type": {"const": "EMOTIONAL_LANGUAGE"}}}, "then": {"properties": {"rule_id": {"const": "DA-12"}, "risk_name": {"const": "감정적 언어"}, "severity": {"const": "REVIEW"}}}},
-        {"if": {"properties": {"risk_type": {"const": "SEQUENTIAL_PRICE_DISCLOSURE"}}}, "then": {"properties": {"rule_id": {"const": "DA-15"}, "risk_name": {"const": "순차공개 가격책정"}}}}
+        {"if": {"properties": {"risk_type": {"const": "SEQUENTIAL_PRICE_DISCLOSURE"}}}, "then": {"properties": {"rule_id": {"const": "DA-15"}, "risk_name": {"const": "순차공개 가격책정"}, "where": {"properties": {"screen_ids": {"minItems": 2}}}}}}
       ]
     }
   }
