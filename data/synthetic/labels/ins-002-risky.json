@@ -53,6 +53,7 @@
       "label_unit": "element",
       "primary": {
         "screen_index": 5,
+        "element_id": "button-vibrtf",
         "bbox": [
           0.3434,
           0.9064,
@@ -65,6 +66,7 @@
       "related_elements": [
         {
           "screen_index": 5,
+          "element_id": "button-2w0xzv",
           "bbox": [
             0.0462,
             0.9064,

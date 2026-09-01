@@ -1,0 +1,238 @@
+"""
+DB 기반 저장소
+-------------
+MemoryStore 를 대체한다. 서버가 재시작되어도 감사 결과가 남아야 하고,
+회차(AuditRun)를 보관해야 Before/After 재검증이 가능하기 때문이다.
+
+프론트 호환
+
+    AuditDto.findings 에는 **최신 완료 Run 의 결과**를 그대로 내려준다.
+    내부 구조가 Audit → AuditRun → Finding 으로 바뀌어도 프론트는 기존과
+    동일하게 동작한다. runs / latestRunId 는 추가 필드이므로 무시해도 무해하다.
+"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from datetime import datetime, timezone
+
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.models import (
+    Audit, AuditRun, Base, Element, Evidence, Finding,
+    FindingRelatedElement, RunStatus, Screen, Severity,
+)
+
+from . import compat
+from .schemas import (
+    AuditDto, AuditRunDto, BBox, ElementRef, FindingDto, ScreenDto,
+)
+
+DB_URL = os.getenv("DARKAUDIT_DB_URL", "sqlite:///data/darkaudit.db")
+
+_engine = create_engine(DB_URL, future=True, connect_args=(
+    {"check_same_thread": False} if DB_URL.startswith("sqlite") else {}
+))
+SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False, future=True)
+
+
+def init_db() -> None:
+    if DB_URL.startswith("sqlite:///"):
+        path = DB_URL.replace("sqlite:///", "")
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    Base.metadata.create_all(_engine)
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def new_id(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex}"
+
+
+# ---------------------------------------------------------------- 조회
+
+
+def latest_completed_run(audit: Audit) -> AuditRun | None:
+    done = [r for r in audit.runs if r.status is RunStatus.DONE]
+    return max(done, key=lambda r: r.version) if done else None
+
+
+def _bbox(el: Element | None, screen_ext: str, screens: dict[int, Screen]) -> BBox | None:
+    """
+    정규화 좌표를 원본 이미지 기준으로 되돌린다.
+
+    프론트는 이미지 위에 그리므로 픽셀 좌표가 필요하다.
+    viewport 정보가 없으면 정규화 좌표를 그대로 내리고 coordinateSystem 으로 표시한다.
+    """
+    if el is None:
+        return None
+    sc = screens.get(el.screen_id)
+    if sc and sc.viewport_w and sc.viewport_h:
+        return BBox(
+            screenId=screen_ext,
+            x=round(el.bbox_x * sc.viewport_w, 1),
+            y=round(el.bbox_y * sc.viewport_h, 1),
+            width=round(el.bbox_w * sc.viewport_w, 1),
+            height=round(el.bbox_h * sc.viewport_h, 1),
+            coordinateSystem="image",
+        )
+    return BBox(
+        screenId=screen_ext,
+        x=el.bbox_x, y=el.bbox_y, width=el.bbox_w, height=el.bbox_h,
+        coordinateSystem="normalized",
+    )
+
+
+RISK_TYPE_OF = {
+    "DA-02": "DECEPTIVE_QUESTION",
+    "DA-03": "VISUAL_HIERARCHY_DISTORTION",
+    "DA-04": "PRESELECTED_OPTION",
+    "DA-05": "FALSE_ADVERTISING",
+    "DA-07": "HIDDEN_INFORMATION",
+    "DA-11": "REPEATED_INTERFERENCE",
+    "DA-12": "EMOTIONAL_LANGUAGE",
+    "DA-13": "SENSORY_MANIPULATION",
+    "DA-15": "SEQUENTIAL_PRICE_DISCLOSURE",
+}
+
+
+def to_finding_dto(
+    f: Finding,
+    screens_by_id: dict[int, Screen],
+    screen_ext_id: dict[int, str],
+    rules: dict,
+    fid_of_rule: dict[str, str],
+) -> FindingDto:
+    rule = rules.get(f.rule_id, {})
+    ev = f.evidence
+
+    primary = f.primary_element
+    p_screen = screen_ext_id.get(primary.screen_id, "") if primary else ""
+
+    related = []
+    for r in f.related:
+        el = r.element
+        sid = screen_ext_id.get(el.screen_id, "")
+        related.append(ElementRef(
+            screenId=sid,
+            description=(el.text or el.element_type or "요소"),
+            bbox=_bbox(el, sid, screens_by_id),
+            elementType=el.element_type,
+        ))
+
+    screen_ids = []
+    if primary:
+        screen_ids = [p_screen]
+    elif f.screen_indices:
+        screen_ids = [screen_ext_id[s.id] for s in screens_by_id.values()
+                      if s.screen_index in f.screen_indices]
+
+    return FindingDto(
+        id=f"finding-{f.id}",
+        ruleId=f.rule_id,
+        riskType=RISK_TYPE_OF.get(f.rule_id, "PRESELECTED_OPTION"),
+        title=rule.get("official_name_ko", f.rule_id),
+        description=" ".join(x for x in [ev.why_text if ev else None] if x) or "",
+        screenIds=screen_ids,
+        element=(primary.text if primary and primary.text else (ev.what_text if ev else "")) or "",
+        severity=f.severity.value,
+        status=f.status.value.lower() if f.status.value in ("OPEN",) else "open",
+        confidence=f.confidence if f.confidence is not None else 0.7,
+        recommendation=(ev.fix_text if ev else None) or rule.get("fix_template", ""),
+        guideline=rule.get("official_definition", ""),
+        observation=(ev.observation if ev else None),
+        bbox=_bbox(primary, p_screen, screens_by_id),
+        relatedElements=related,
+        mitigated=f.mitigated,
+        combinationRules=list(f.combination_with or []),
+        combinationWith=[fid_of_rule[r] for r in (f.combination_with or []) if r in fid_of_rule],
+        triggeredChecks=list(ev.triggered_checks or []) if ev else [],
+        measurements=(ev.measurements if ev else None),
+    )
+
+
+def to_audit_dto(session: Session, audit: Audit, rules: dict) -> AuditDto:
+    run = latest_completed_run(audit)
+
+    screens_src = run.screens if run else (audit.runs[-1].screens if audit.runs else [])
+    screens_by_id = {s.id: s for s in screens_src}
+    screen_ext_id = {s.id: f"screen-{s.screen_index:02d}" for s in screens_src}
+
+    findings: list[FindingDto] = []
+    if run:
+        # rule_id → findingId 매핑을 먼저 만든다 (combinationWith 용)
+        fid_of_rule = {f.rule_id: f"finding-{f.id}" for f in run.findings}
+        findings = [
+            to_finding_dto(f, screens_by_id, screen_ext_id, rules, fid_of_rule)
+            for f in run.findings
+        ]
+        findings = compat.filter_findings(findings)
+
+    count_by_screen: dict[str, int] = {}
+    for f in findings:
+        for sid in f.screenIds:
+            count_by_screen[sid] = count_by_screen.get(sid, 0) + 1
+
+    screen_dtos = [
+        ScreenDto(
+            id=screen_ext_id[s.id],
+            order=s.screen_index,
+            flowStep=s.image_path or "",
+            imageUrl=s.image_path or "",
+            findingCount=count_by_screen.get(screen_ext_id[s.id], 0),
+            width=s.viewport_w,
+            height=s.viewport_h,
+        )
+        for s in sorted(screens_src, key=lambda x: x.screen_index)
+    ]
+
+    run_dtos = [
+        AuditRunDto(
+            id=f"run-{r.id}", version=r.version,
+            status={"PENDING": "queued", "RUNNING": "analyzing",
+                    "DONE": "completed", "FAILED": "failed"}[r.status.value],
+            note=r.note, createdAt=r.created_at, findingCount=len(r.findings),
+        )
+        for r in sorted(audit.runs, key=lambda x: x.version)
+    ]
+
+    status = "draft"
+    if audit.runs:
+        last = sorted(audit.runs, key=lambda x: x.version)[-1]
+        status = {"PENDING": "queued", "RUNNING": "analyzing",
+                  "DONE": "completed", "FAILED": "failed"}[last.status.value]
+
+    return AuditDto(
+        id=f"audit-{audit.id}",
+        name=audit.name,
+        platform=audit.product_name or "mobile-web",
+        status=status,
+        updatedAt=audit.created_at,
+        screens=screen_dtos,
+        findings=findings,
+        runs=run_dtos,
+        latestRunId=f"run-{run.id}" if run else None,
+    )
+
+
+def audit_pk(audit_id: str) -> int:
+    """외부 id(audit-123) → 내부 PK."""
+    try:
+        return int(audit_id.rsplit("-", 1)[-1])
+    except ValueError as exc:
+        raise KeyError(audit_id) from exc
+
+
+def get_audit(session: Session, audit_id: str) -> Audit:
+    a = session.get(Audit, audit_pk(audit_id))
+    if a is None:
+        raise KeyError(audit_id)
+    return a
+
+
+def list_audits(session: Session) -> list[Audit]:
+    return list(session.scalars(select(Audit).order_by(Audit.created_at.desc())))
