@@ -1,7 +1,12 @@
 import { delay, http, HttpResponse } from "msw";
 
 import { dashboardFixture } from "@/mocks/fixtures/dashboard";
-import type { AnalysisJobDto, CreateAuditDto, FindingStatus } from "@/entities/audit/types";
+import type {
+  AnalysisJobDto,
+  CreateAuditDto,
+  FindingStatus,
+  ImportFigmaAuditDto,
+} from "@/entities/audit/types";
 
 const jobs = new Map<string, AnalysisJobDto>();
 
@@ -70,6 +75,53 @@ export const handlers = [
       order: index + 1,
       flowStep: `${profile}: initial viewport`,
       imageUrl: `/mock/${profile}.png`,
+      findingCount: 0,
+    }));
+    const job: AnalysisJobDto = {
+      jobId: `job-${crypto.randomUUID()}`,
+      auditId,
+      runId: `run-${crypto.randomUUID()}`,
+      status: "queued",
+      progress: 5,
+    };
+    jobs.set(job.jobId, job);
+    audit.status = "queued";
+    return HttpResponse.json(job, { status: 202 });
+  }),
+  http.post("*/api/v1/audits/:auditId/figma", async ({ params, request }) => {
+    const auditId = String(params.auditId);
+    const input = (await request.json()) as Omit<ImportFigmaAuditDto, "auditId">;
+    const audit = dashboardFixture.audits.find((item) => item.id === auditId);
+    if (!audit) return HttpResponse.json({ message: "Audit not found" }, { status: 404 });
+    audit.screens = ["시작 프레임", "옵션 선택", "최종 확인"].map((flowStep, index) => ({
+      id: `figma-${index + 1}`,
+      order: index + 1,
+      flowStep,
+      imageUrl: `/mock/figma-frame-${index + 1}.png`,
+      findingCount: 0,
+    }));
+    audit.platform = input.target;
+    const job: AnalysisJobDto = {
+      jobId: `job-${crypto.randomUUID()}`,
+      auditId,
+      runId: `run-${crypto.randomUUID()}`,
+      status: "queued",
+      progress: 5,
+    };
+    jobs.set(job.jobId, job);
+    audit.status = "queued";
+    return HttpResponse.json(job, { status: 202 });
+  }),
+  http.post("*/api/v1/audits/:auditId/mobile-app", async ({ params }) => {
+    const auditId = String(params.auditId);
+    const audit = dashboardFixture.audits.find((item) => item.id === auditId);
+    if (!audit) return HttpResponse.json({ message: "Audit not found" }, { status: 404 });
+    audit.platform = "app";
+    audit.screens = ["앱 시작", "주요 선택", "확인 직전"].map((flowStep, index) => ({
+      id: `android-${index + 1}`,
+      order: index + 1,
+      flowStep,
+      imageUrl: `/mock/android-${index + 1}.png`,
       findingCount: 0,
     }));
     const job: AnalysisJobDto = {

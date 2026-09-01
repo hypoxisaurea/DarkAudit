@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  analyzeAndroidApp,
   captureAuditUrl,
   createAudit,
   getAnalysisStatus,
+  importFigmaAudit,
   startAnalysis,
   uploadAuditScreens,
 } from "@/api/audits";
@@ -27,6 +29,14 @@ export function useUploadAuditScreens() {
 
 export function useCaptureAuditUrl() {
   return useMutation({ mutationFn: captureAuditUrl });
+}
+
+export function useImportFigmaAudit() {
+  return useMutation({ mutationFn: importFigmaAudit });
+}
+
+export function useAnalyzeAndroidApp() {
+  return useMutation({ mutationFn: analyzeAndroidApp });
 }
 
 export function useAnalysisStatus(jobId?: string) {
