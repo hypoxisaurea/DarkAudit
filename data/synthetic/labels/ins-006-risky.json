@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "flow_id": "ins-006-risky",
+  "variant": "risky",
+  "pair_id": "ins-006",
+  "sector": "insurance",
+  "flow_type": "join",
+  "screens": [
+    {
+      "screen_index": 1,
+      "image": "ins-006-risky/01.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 2,
+      "image": "ins-006-risky/02.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 3,
+      "image": "ins-006-risky/03.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 4,
+      "image": "ins-006-risky/04.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 5,
+      "image": "ins-006-risky/05.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    }
+  ],
+  "labels": [
+    {
+      "rule_id": "DA-13",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 3,
+        "element_id": "div-s47y5g",
+        "bbox": [
+          0.0692,
+          0.2723,
+          0.8615,
+          0.0847
+        ],
+        "text": "안심케어 서비스\n24시간 건강상담 · 병원 예약대행\n+3,000원",
+        "element_type": "text"
+      },
+      "related_elements": [],
+      "severity": "REVIEW",
+      "mitigated": false
+    }
+  ],
+  "deferred": []
+}

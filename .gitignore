@@ -23,3 +23,12 @@ data/synthetic/screenshots/
 .DS_Store
 .idea/
 .vscode/
+
+# 생성물 — config 로 언제든 재생성 가능
+data/synthetic/html/
+data/synthetic/review/
+data/synthetic/ui/
+
+# DB
+*.db
+data/darkaudit.db

@@ -1,0 +1,189 @@
+{
+  "schema_version": "1.0",
+  "flow_id": "ins-001-risky",
+  "variant": "risky",
+  "pair_id": "ins-001",
+  "sector": "insurance",
+  "flow_type": "join",
+  "screens": [
+    {
+      "screen_index": 1,
+      "image": "ins-001-risky/01.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 2,
+      "image": "ins-001-risky/02.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 3,
+      "image": "ins-001-risky/03.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 4,
+      "image": "ins-001-risky/04.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 5,
+      "image": "ins-001-risky/05.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    }
+  ],
+  "labels": [
+    {
+      "rule_id": "DA-03",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 5,
+        "element_id": "button-vibrtf",
+        "bbox": [
+          0.3434,
+          0.8886,
+          0.6105,
+          0.0806
+        ],
+        "text": "가입 완료하기",
+        "element_type": "button"
+      },
+      "related_elements": [
+        {
+          "screen_index": 5,
+          "element_id": "button-15eznqn",
+          "bbox": [
+            0.0462,
+            0.8886,
+            0.2742,
+            0.0806
+          ],
+          "text": "혜택을 포기하고 나가기",
+          "element_type": "button"
+        }
+      ],
+      "severity": "HIGH",
+      "mitigated": false
+    },
+    {
+      "rule_id": "DA-04",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 3,
+        "element_id": "div-t8ahig",
+        "bbox": [
+          0.0897,
+          0.2901,
+          0.0538,
+          0.0249
+        ],
+        "element_type": "checkbox"
+      },
+      "related_elements": [],
+      "severity": "HIGH",
+      "mitigated": false
+    },
+    {
+      "rule_id": "DA-07",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 1,
+        "element_id": "div-10r5zg1",
+        "bbox": [
+          0.0462,
+          0.6714,
+          0.9077,
+          0.0455
+        ],
+        "text": "본 보험은 예금자보호법에 따라 보호되지 않는 상품이며, 중도 해지 시 해약환급금이 납입한 보험료보다 적거나 ",
+        "element_type": "text"
+      },
+      "related_elements": [],
+      "severity": "HIGH",
+      "mitigated": false
+    },
+    {
+      "rule_id": "DA-07",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 5,
+        "element_id": "div-160xdz7",
+        "bbox": [
+          0.0462,
+          0.4951,
+          0.9077,
+          0.0304
+        ],
+        "text": "청약 후 15일 이내 청약철회가 가능하며, 보험금 지급사유 발생 시 약관에 따라 지급이 제한될 수 있습니다.",
+        "element_type": "text"
+      },
+      "related_elements": [],
+      "severity": "HIGH",
+      "mitigated": false
+    },
+    {
+      "rule_id": "DA-12",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 5,
+        "element_id": "button-15eznqn",
+        "bbox": [
+          0.0462,
+          0.8886,
+          0.2742,
+          0.0806
+        ],
+        "text": "혜택을 포기하고 나가기",
+        "element_type": "button"
+      },
+      "related_elements": [],
+      "severity": "REVIEW",
+      "mitigated": false
+    },
+    {
+      "rule_id": "DA-13",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 3,
+        "element_id": "div-s47y5g",
+        "bbox": [
+          0.0692,
+          0.2723,
+          0.8615,
+          0.0847
+        ],
+        "text": "안심케어 서비스\n24시간 건강상담 · 병원 예약대행\n+3,000원",
+        "element_type": "text"
+      },
+      "related_elements": [],
+      "severity": "REVIEW",
+      "mitigated": false
+    },
+    {
+      "rule_id": "DA-15",
+      "label_unit": "flow",
+      "screen_indices": [
+        1,
+        4
+      ],
+      "severity": "HIGH",
+      "mitigated": false
+    }
+  ],
+  "deferred": []
+}

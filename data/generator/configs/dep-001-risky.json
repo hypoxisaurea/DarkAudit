@@ -1,0 +1,10 @@
+{
+  "flow_id": "dep-001-risky",
+  "pair_id": "dep-001",
+  "variant": "risky",
+  "sector": "deposit",
+  "flow_type": "join",
+  "base_rate": 2.0,
+  "top_rate": 4.5,
+  "patterns": ["DA-03", "DA-04", "DA-05", "DA-07", "DA-12", "DA-13", "DA-15"]
+}

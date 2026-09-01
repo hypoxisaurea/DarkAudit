@@ -1,0 +1,10 @@
+{
+  "flow_id": "dep-001-clean",
+  "pair_id": "dep-001",
+  "variant": "clean",
+  "sector": "deposit",
+  "flow_type": "join",
+  "base_rate": 2.0,
+  "top_rate": 4.5,
+  "patterns": []
+}

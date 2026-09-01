@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "flow_id": "ins-002-risky",
+  "variant": "risky",
+  "pair_id": "ins-002",
+  "sector": "insurance",
+  "flow_type": "join",
+  "screens": [
+    {
+      "screen_index": 1,
+      "image": "ins-002-risky/01.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 2,
+      "image": "ins-002-risky/02.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 3,
+      "image": "ins-002-risky/03.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 4,
+      "image": "ins-002-risky/04.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "screen_index": 5,
+      "image": "ins-002-risky/05.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      }
+    }
+  ],
+  "labels": [
+    {
+      "rule_id": "DA-03",
+      "label_unit": "element",
+      "primary": {
+        "screen_index": 5,
+        "element_id": "button-vibrtf",
+        "bbox": [
+          0.3434,
+          0.9064,
+          0.6105,
+          0.0628
+        ],
+        "text": "가입 완료하기",
+        "element_type": "button"
+      },
+      "related_elements": [
+        {
+          "screen_index": 5,
+          "element_id": "button-2w0xzv",
+          "bbox": [
+            0.0462,
+            0.9064,
+            0.2742,
+            0.0628
+          ],
+          "text": "가입하지 않기",
+          "element_type": "button"
+        }
+      ],
+      "severity": "HIGH",
+      "mitigated": false
+    }
+  ],
+  "deferred": []
+}
