@@ -16,6 +16,8 @@ rules/dark_pattern_rules.json
 
 # 데이터
 data/synthetic/screenshots/
+data/uploads/
+data/captures/
 *.db
 *.sqlite3
 
