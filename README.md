@@ -65,7 +65,7 @@ DARKAUDIT_PROVIDER=fake
 ```
 
 ```bash
-python -m uvicorn backend.main:app --reload --port 8000
+python -m uvicorn backend.api.main:app --reload --port 8000
 ```
 
 `http://localhost:8000/health`에서 상태를, `http://localhost:8000/docs`에서 API 문서를
@@ -77,6 +77,13 @@ python -m uvicorn backend.main:app --reload --port 8000
 DARKAUDIT_PROVIDER=openai
 DARKAUDIT_MODEL=YOUR_VISION_CAPABLE_MODEL
 OPENAI_API_KEY=YOUR_KEY
+```
+
+URL 진단의 `빠른 캡처` 모드는 추가 AI 설정 없이 Playwright로 동작합니다.
+`Computer Use`로 흐름을 탐색하는 `스마트 탐색`을 사용하려면 다음 변수도 설정합니다.
+
+```dotenv
+DARKAUDIT_COMPUTER_MODEL=YOUR_COMPUTER_USE_MODEL
 ```
 
 선택한 모델은 Responses API의 이미지 입력과 Structured Outputs를 지원해야 합니다.
