@@ -139,6 +139,7 @@ class Screen(Base):
     run_id: Mapped[int] = mapped_column(ForeignKey("audit_run.id", ondelete="CASCADE"))
     flow_type: Mapped[FlowType] = mapped_column(Enum(FlowType), default=FlowType.join)
     screen_index: Mapped[int] = mapped_column(Integer)
+    flow_step: Mapped[str | None] = mapped_column(String(200))
     image_path: Mapped[str | None] = mapped_column(String(400))
     viewport_w: Mapped[int | None] = mapped_column(Integer)
     viewport_h: Mapped[int | None] = mapped_column(Integer)

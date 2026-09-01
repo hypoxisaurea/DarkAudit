@@ -16,7 +16,7 @@ DarkAudit API 계약
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 
 RuleId = Literal["DA-02", "DA-03", "DA-04", "DA-05", "DA-07", "DA-11", "DA-12", "DA-13", "DA-15"]
 RiskType = Literal[
@@ -149,6 +149,21 @@ class JobDto(BaseModel):
     status: Literal["queued", "analyzing", "completed", "failed"]
     progress: float = Field(ge=0, le=100)
     runId: str | None = None
+    error: str | None = None
+
+
+class CaptureAuditRequest(BaseModel):
+    url: HttpUrl
+    mode: Literal["quick", "smart"] = "quick"
+    profiles: list[Literal["desktop", "mobile"]] = Field(
+        default_factory=lambda: ["desktop", "mobile"], min_length=1, max_length=2
+    )
+    goal: str | None = Field(default=None, max_length=1000)
+
+
+class DashboardSummaryDto(BaseModel):
+    activeAuditId: str | None
+    audits: list[AuditDto]
 
 
 class FindingStatusRequest(BaseModel):
