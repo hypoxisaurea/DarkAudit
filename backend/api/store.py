@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import (
+from backend.app.models import (
     Audit, AuditRun, Base, Element, Evidence, Finding,
     FindingRelatedElement, RunStatus, Screen, Severity,
 )
@@ -47,6 +47,11 @@ def init_db() -> None:
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def aware(value: datetime) -> datetime:
+    """SQLite drops timezone metadata; API timestamps must remain RFC 3339 compatible."""
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 def new_id(prefix: str) -> str:
@@ -140,7 +145,7 @@ def to_finding_dto(
         screenIds=screen_ids,
         element=(primary.text if primary and primary.text else (ev.what_text if ev else "")) or "",
         severity=f.severity.value,
-        status=f.status.value.lower() if f.status.value in ("OPEN",) else "open",
+        status="resolved" if f.status.value == "RESOLVED" else "open",
         confidence=f.confidence if f.confidence is not None else 0.7,
         recommendation=(ev.fix_text if ev else None) or rule.get("fix_template", ""),
         guideline=rule.get("official_definition", ""),
@@ -181,7 +186,7 @@ def to_audit_dto(session: Session, audit: Audit, rules: dict) -> AuditDto:
         ScreenDto(
             id=screen_ext_id[s.id],
             order=s.screen_index,
-            flowStep=s.image_path or "",
+            flowStep=s.flow_step or f"화면 {s.screen_index}",
             imageUrl=s.image_path or "",
             findingCount=count_by_screen.get(screen_ext_id[s.id], 0),
             width=s.viewport_w,
@@ -195,7 +200,7 @@ def to_audit_dto(session: Session, audit: Audit, rules: dict) -> AuditDto:
             id=f"run-{r.id}", version=r.version,
             status={"PENDING": "queued", "RUNNING": "analyzing",
                     "DONE": "completed", "FAILED": "failed"}[r.status.value],
-            note=r.note, createdAt=r.created_at, findingCount=len(r.findings),
+            note=r.note, createdAt=aware(r.created_at), findingCount=len(r.findings),
         )
         for r in sorted(audit.runs, key=lambda x: x.version)
     ]
@@ -211,7 +216,7 @@ def to_audit_dto(session: Session, audit: Audit, rules: dict) -> AuditDto:
         name=audit.name,
         platform=audit.product_name or "mobile-web",
         status=status,
-        updatedAt=audit.created_at,
+        updatedAt=aware(audit.created_at),
         screens=screen_dtos,
         findings=findings,
         runs=run_dtos,
