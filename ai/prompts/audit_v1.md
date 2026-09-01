@@ -12,3 +12,4 @@
 7. audit_id, schema_version, screens는 입력 값을 그대로 복사한다.
 8. where.screen_ids에는 해당 Evidence가 실제로 존재하는 화면만 순서대로 기록한다.
 9. 설명이나 Markdown 없이 JSON Schema에 맞는 JSON만 반환한다.
+10. flow_step이 `desktop:`, `mobile:`, `iphone:`으로 시작하면 각 프로필은 독립된 사용자 흐름이다. DA-15의 전후 가격 비교를 서로 다른 프로필 사이에서 수행하지 않는다.
