@@ -318,13 +318,11 @@ function RecentAudits({
         <table className="w-full min-w-[780px] text-left text-xs">
           <thead className="border-b border-border bg-black/[0.015] text-muted">
             <tr>
-              {["진단 이름", "플랫폼", "화면", "탐지 항목", "상태", "최근 수정", ""].map(
-                (head) => (
-                  <th className="px-6 py-3 font-medium" key={head}>
-                    {head}
-                  </th>
-                ),
-              )}
+              {["진단 이름", "플랫폼", "화면", "탐지 항목", "상태", "최근 수정", ""].map((head) => (
+                <th className="px-6 py-3 font-medium" key={head}>
+                  {head}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -435,6 +433,19 @@ export function OverviewPage() {
     data.audits.find((item) => item.id === searchParams.get("audit")) ??
     data.audits.find((item) => item.id === data.activeAuditId) ??
     data.audits[0]!;
+  if (!audit.screens.length) {
+    return (
+      <Card className="mx-auto mt-20 max-w-lg p-10 text-center">
+        <CircleAlert className="mx-auto text-warning" size={36} />
+        <h1 className="mt-5 text-xl font-bold">캡처된 화면이 없습니다</h1>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          {audit.status === "failed"
+            ? "자동 캡처 또는 AI 분석이 실패했습니다. 새 진단에서 URL과 서버 설정을 확인해주세요."
+            : "화면 업로드나 URL 캡처가 아직 시작되지 않은 진단입니다."}
+        </p>
+      </Card>
+    );
+  }
   const screen =
     audit.screens.find((item) => item.id === searchParams.get("screen")) ?? audit.screens[0]!;
   const finding =

@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createAudit, getAnalysisStatus, startAnalysis, uploadAuditScreens } from "@/api/audits";
+import {
+  captureAuditUrl,
+  createAudit,
+  getAnalysisStatus,
+  startAnalysis,
+  uploadAuditScreens,
+} from "@/api/audits";
 import { dashboardKeys } from "@/features/audit-dashboard/useDashboardSummary";
 
 export function useCreateAudit() {
@@ -19,11 +25,16 @@ export function useUploadAuditScreens() {
   return useMutation({ mutationFn: uploadAuditScreens });
 }
 
+export function useCaptureAuditUrl() {
+  return useMutation({ mutationFn: captureAuditUrl });
+}
+
 export function useAnalysisStatus(jobId?: string) {
   return useQuery({
     queryKey: ["analysis-job", jobId],
     queryFn: () => getAnalysisStatus(jobId!),
     enabled: Boolean(jobId),
-    refetchInterval: (query) => (query.state.data?.status === "completed" ? false : 800),
+    refetchInterval: (query) =>
+      ["completed", "failed"].includes(query.state.data?.status ?? "") ? false : 800,
   });
 }

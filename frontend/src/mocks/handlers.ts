@@ -56,6 +56,33 @@ export const handlers = [
     if (audit) audit.status = "queued";
     return HttpResponse.json(job, { status: 202 });
   }),
+  http.post("*/api/v1/audits/:auditId/capture", async ({ params, request }) => {
+    const auditId = String(params.auditId);
+    const input = (await request.json()) as {
+      url: string;
+      mode: "quick" | "smart";
+      profiles: Array<"desktop" | "mobile">;
+    };
+    const audit = dashboardFixture.audits.find((item) => item.id === auditId);
+    if (!audit) return HttpResponse.json({ message: "Audit not found" }, { status: 404 });
+    audit.screens = input.profiles.map((profile, index) => ({
+      id: `screen-${index + 1}`,
+      order: index + 1,
+      flowStep: `${profile}: initial viewport`,
+      imageUrl: `/mock/${profile}.png`,
+      findingCount: 0,
+    }));
+    const job: AnalysisJobDto = {
+      jobId: `job-${crypto.randomUUID()}`,
+      auditId,
+      runId: `run-${crypto.randomUUID()}`,
+      status: "queued",
+      progress: 5,
+    };
+    jobs.set(job.jobId, job);
+    audit.status = "queued";
+    return HttpResponse.json(job, { status: 202 });
+  }),
   http.get("*/api/v1/analysis-jobs/:jobId", async ({ params }) => {
     await delay(250);
     const job = jobs.get(String(params.jobId));

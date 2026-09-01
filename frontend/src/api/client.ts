@@ -17,6 +17,10 @@ export class ApiError extends Error {
   }
 }
 
+export function resolveApiUrl(value: string) {
+  return value.startsWith("/") && API_BASE_URL ? `${API_BASE_URL}${value}` : value;
+}
+
 function getAccessToken() {
   return sessionStorage.getItem("darkaudit.accessToken");
 }

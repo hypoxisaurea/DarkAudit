@@ -1,12 +1,19 @@
 import { z } from "zod";
 
+import { resolveApiUrl } from "@/api/client";
+
 export const findingSchema = z.object({
   id: z.string().min(1),
-  ruleId: z.enum(["DA-03", "DA-04", "DA-12", "DA-15"]),
+  ruleId: z.enum(["DA-02", "DA-03", "DA-04", "DA-05", "DA-07", "DA-11", "DA-12", "DA-13", "DA-15"]),
   riskType: z.enum([
+    "DECEPTIVE_QUESTION",
     "PRESELECTED_OPTION",
     "VISUAL_HIERARCHY_DISTORTION",
+    "FALSE_ADVERTISING",
+    "HIDDEN_INFORMATION",
+    "REPEATED_INTERFERENCE",
     "EMOTIONAL_LANGUAGE",
+    "SENSORY_MANIPULATION",
     "SEQUENTIAL_PRICE_DISCLOSURE",
   ]),
   title: z.string(),
@@ -15,11 +22,17 @@ export const findingSchema = z.object({
   element: z.string(),
   defaultState: z.string().optional(),
   costImpact: z.string().optional(),
-  severity: z.enum(["HIGH", "REVIEW"]),
+  severity: z.enum(["HIGH", "REVIEW", "LOW"]),
   status: z.enum(["open", "reviewing", "resolved"]),
   confidence: z.number().min(0).max(1),
   recommendation: z.string(),
   guideline: z.string(),
+  observation: z.string().nullable().optional(),
+  mitigated: z.boolean().optional(),
+  combinationWith: z.array(z.string()).optional(),
+  combinationRules: z.array(z.string()).optional(),
+  triggeredChecks: z.array(z.string()).optional(),
+  measurements: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export const auditSchema = z.object({
@@ -33,11 +46,26 @@ export const auditSchema = z.object({
       id: z.string().min(1),
       order: z.number().int().positive(),
       flowStep: z.string().min(1),
-      imageUrl: z.string(),
+      imageUrl: z.string().transform(resolveApiUrl),
       findingCount: z.number().int().nonnegative(),
+      width: z.number().int().positive().nullable().optional(),
+      height: z.number().int().positive().nullable().optional(),
     }),
   ),
   findings: z.array(findingSchema),
+  runs: z
+    .array(
+      z.object({
+        id: z.string(),
+        version: z.number().int().positive(),
+        status: z.enum(["queued", "analyzing", "completed", "failed"]),
+        note: z.string().nullable().optional(),
+        createdAt: z.string().datetime({ offset: true }),
+        findingCount: z.number().int().nonnegative(),
+      }),
+    )
+    .optional(),
+  latestRunId: z.string().nullable().optional(),
 });
 
 export const dashboardSummarySchema = z.object({
@@ -50,4 +78,6 @@ export const analysisJobSchema = z.object({
   auditId: z.string().min(1),
   status: z.enum(["queued", "analyzing", "completed", "failed"]),
   progress: z.number().min(0).max(100),
+  runId: z.string().nullable().optional(),
+  error: z.string().nullable().optional(),
 });

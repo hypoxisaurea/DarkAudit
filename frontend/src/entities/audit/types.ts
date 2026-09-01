@@ -1,5 +1,5 @@
 export type AuditStatus = "draft" | "queued" | "analyzing" | "completed" | "failed";
-export type FindingSeverity = "HIGH" | "REVIEW";
+export type FindingSeverity = "HIGH" | "REVIEW" | "LOW";
 export type FindingStatus = "open" | "reviewing" | "resolved";
 
 export type AuditScreenDto = {
@@ -8,15 +8,22 @@ export type AuditScreenDto = {
   flowStep: string;
   imageUrl: string;
   findingCount: number;
+  width?: number | null;
+  height?: number | null;
 };
 
 export type FindingDto = {
   id: string;
-  ruleId: "DA-03" | "DA-04" | "DA-12" | "DA-15";
+  ruleId: "DA-02" | "DA-03" | "DA-04" | "DA-05" | "DA-07" | "DA-11" | "DA-12" | "DA-13" | "DA-15";
   riskType:
+    | "DECEPTIVE_QUESTION"
     | "PRESELECTED_OPTION"
     | "VISUAL_HIERARCHY_DISTORTION"
+    | "FALSE_ADVERTISING"
+    | "HIDDEN_INFORMATION"
+    | "REPEATED_INTERFERENCE"
     | "EMOTIONAL_LANGUAGE"
+    | "SENSORY_MANIPULATION"
     | "SEQUENTIAL_PRICE_DISCLOSURE";
   title: string;
   description: string;
@@ -29,6 +36,21 @@ export type FindingDto = {
   confidence: number;
   recommendation: string;
   guideline: string;
+  observation?: string | null;
+  mitigated?: boolean;
+  combinationWith?: string[];
+  combinationRules?: string[];
+  triggeredChecks?: string[];
+  measurements?: Record<string, unknown> | null;
+};
+
+export type AuditRunDto = {
+  id: string;
+  version: number;
+  status: Exclude<AuditStatus, "draft">;
+  note?: string | null;
+  createdAt: string;
+  findingCount: number;
 };
 
 export type AuditDto = {
@@ -39,6 +61,8 @@ export type AuditDto = {
   updatedAt: string;
   screens: AuditScreenDto[];
   findings: FindingDto[];
+  runs?: AuditRunDto[];
+  latestRunId?: string | null;
 };
 
 export type DashboardSummaryDto = {
@@ -53,9 +77,19 @@ export type CreateAuditDto = {
 
 export type UploadAuditScreen = { id: string; flowStep: string; file: File };
 
+export type CaptureAuditUrlDto = {
+  auditId: string;
+  url: string;
+  mode: "quick" | "smart";
+  profiles: Array<"desktop" | "mobile">;
+  goal?: string;
+};
+
 export type AnalysisJobDto = {
   jobId: string;
   auditId: string;
   status: "queued" | "analyzing" | "completed" | "failed";
   progress: number;
+  runId?: string | null;
+  error?: string | null;
 };

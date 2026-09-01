@@ -3,6 +3,7 @@ import { analysisJobSchema, auditSchema } from "@/api/schemas";
 import type {
   AuditDto,
   CreateAuditDto,
+  CaptureAuditUrlDto,
   FindingStatus,
   UploadAuditScreen,
 } from "@/entities/audit/types";
@@ -47,6 +48,16 @@ export function uploadAuditScreens({
 export async function startAnalysis(auditId: string) {
   return analysisJobSchema.parse(
     await apiRequest<unknown>(`/api/v1/audits/${auditId}/analyze`, { method: "POST" }),
+  );
+}
+
+export async function captureAuditUrl({ auditId, ...input }: CaptureAuditUrlDto) {
+  return analysisJobSchema.parse(
+    await apiRequest<unknown>(`/api/v1/audits/${auditId}/capture`, {
+      method: "POST",
+      body: JSON.stringify(input),
+      timeoutMs: 120_000,
+    }),
   );
 }
 
