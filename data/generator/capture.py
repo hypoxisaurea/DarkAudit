@@ -46,29 +46,63 @@ RELATED_OF = {
 # related 를 primary 와 같은 selector 로 못 찾는 경우를 위한 예외 처리는
 # 규칙이 늘어나면 별도 모듈로 분리한다.
 
-EXTRACT_JS = """
-() => {
+# element_id 는 순번이 아니라 구조 기반으로 만든다.
+# 순번(el_001...)을 쓰면 요소가 하나만 추가돼도 뒤가 전부 밀려
+# Before/After 에서 고치지도 않은 문제가 "해결 + 신규 발생"으로 잡힌다.
+#
+# Playwright 의 evaluate 는 단일 표현식만 받으므로 헬퍼를 화살표 함수 안에 둔다.
+_ID_FN = r"""
+  const daId = (el) => {
+    const tag = el.tagName.toLowerCase();
+    const cls = (el.className || '').toString().trim().split(/\s+/)
+                  .filter(Boolean).sort().join('.');
+    const txt = (el.innerText || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+    const path = [];
+    let n = el;
+    while (n && n !== document.body && path.length < 4) {
+      path.push(n.tagName.toLowerCase());
+      n = n.parentElement;
+    }
+    const raw = [path.reverse().join('>'), cls, txt].join('|');
+    let h = 0;
+    for (let i = 0; i < raw.length; i++) { h = (h * 31 + raw.charCodeAt(i)) | 0; }
+    return tag + '-' + (h >>> 0).toString(36);
+  };
+"""
+
+EXTRACT_JS = "() => {" + _ID_FN + r"""
+  const mitigated = new Set(
+    [...document.querySelectorAll('[data-da-mitigate]')]
+      .map(el => el.getAttribute('data-da-mitigate'))
+  );
   const out = [];
   document.querySelectorAll('[data-da]').forEach(el => {
     const r = el.getBoundingClientRect();
     out.push({
       rule_id: el.getAttribute('data-da'),
+      element_id: daId(el),
+      mitigated: mitigated.has(el.getAttribute('data-da')),
       bbox: [r.x, r.y, r.width, r.height],
       text: (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0, 60)
     });
   });
   return out;
-}
-"""
+}"""
 
-RELATED_JS = """
-(sel) => {
+RELATED_JS = "(sel) => {" + _ID_FN + r"""
   const el = document.querySelector(sel);
   if (!el) return null;
   const r = el.getBoundingClientRect();
-  return { bbox: [r.x, r.y, r.width, r.height], text: (el.innerText || '').trim().slice(0, 60) };
-}
-"""
+  return {
+    element_id: daId(el),
+    bbox: [r.x, r.y, r.width, r.height],
+    text: (el.innerText || '').trim().slice(0, 60)
+  };
+}"""
+
+
+# Rule Base severity_policy: 완화 요건 충족 시 유형은 유지하고 severity 만 1단계 낮춘다
+DOWNGRADE = {"HIGH": "REVIEW", "REVIEW": "LOW", "LOW": "LOW"}
 
 
 def _norm(bbox: list[float], w: int, h: int) -> list[float]:
@@ -121,13 +155,15 @@ def capture(cfg: dict, html_root: Path, shot_root: Path, label_root: Path) -> di
                     "label_unit": "element",
                     "primary": {
                         "screen_index": idx,
+                        "element_id": hit["element_id"],
                         "bbox": _norm(hit["bbox"], dims["w"], dims["h"]),
                         "text": hit["text"] or None,
                         "element_type": meta["type"],
                     },
                     "related_elements": [],
-                    "severity": meta["severity"],
-                    "mitigated": False,
+                    "severity": (DOWNGRADE[meta["severity"]] if hit.get("mitigated")
+                                 else meta["severity"]),
+                    "mitigated": bool(hit.get("mitigated")),
                 }
                 if label["primary"]["text"] is None:
                     del label["primary"]["text"]
@@ -137,6 +173,7 @@ def capture(cfg: dict, html_root: Path, shot_root: Path, label_root: Path) -> di
                     if rel:
                         label["related_elements"].append({
                             "screen_index": idx,
+                            "element_id": rel["element_id"],
                             "bbox": _norm(rel["bbox"], dims["w"], dims["h"]),
                             "text": rel["text"],
                             "element_type": "button",

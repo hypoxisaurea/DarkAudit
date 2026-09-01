@@ -33,6 +33,7 @@ python capture.py  --config configs/ins-001-risky.json
 | `pair_id` | Risky/Clean 짝의 공통 ID |
 | `variant` | `risky` / `clean` |
 | `patterns` | 심을 rule_id 배열. 빈 배열이면 clean |
+| `patterns` 의 `mitigate_DA-XX` | 해당 유형의 완화 요건을 충족시킨다. 유형은 유지되고 severity 만 1단계 하향 |
 | `base_price` / `final_price` | DA-15 의 최초가·최종가 |
 
 ## 한계
@@ -60,6 +61,26 @@ python inspect_labels.py --flow dep-001-risky
 | --- | --- | --- |
 | `ins-001`, `dep-001` | 복합 — P0 유형 전부 | 통합 시나리오, 결합 판정 |
 | `ins-002`~`ins-008`, `dep-002` | 단일 패턴 — 유형 하나만 | Counterfactual Consistency 격리 측정 |
+| `ins-009` | DA-04 + 완화 요건 | severity 하향 처리 검증 |
 
 단일 패턴 쌍이 있어야 "체크박스 기본값만 뒤집었을 때 해당 유형 탐지가 사라지는가"를
 다른 패턴의 간섭 없이 측정할 수 있다.
+
+## element_id
+
+`primary` 와 `related_elements` 에 DOM 기반 `element_id` 를 기록한다.
+
+순번(`el_001`...)이 아니라 **태그 경로 + 클래스 + 텍스트 해시**로 만든다. 순번을 쓰면
+요소가 하나만 추가돼도 뒤가 전부 밀려, Before/After 에서 고치지도 않은 문제가
+"해결 + 신규 발생"으로 잡힌다.
+
+실제로 복합 Flow 와 단일 패턴 Flow 는 화면 구성이 다르지만 같은 요소는 같은 id 를 받는다.
+
+**평가의 주 키로 사용하지 않는다.** `element_id` 는 우리가 생성한 화면에만 존재하며
+실제 서비스 입력인 스크린샷에는 없다. Localization 평가는 bbox(IoU) 로 하고,
+`element_id` 는 Counterfactual 검증과 Before/After 매칭의 보조 키로만 쓴다.
+
+## severity
+
+자동 라벨의 severity 는 Rule Base 의 기본값을 따르며, 완화 요건을 충족하면 1단계 낮춘다.
+최종 severity(결합 판정 포함)는 Backend 의 Rule Engine 이 계산한다.

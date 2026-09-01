@@ -53,6 +53,7 @@
       "label_unit": "element",
       "primary": {
         "screen_index": 1,
+        "element_id": "div-10r5zg1",
         "bbox": [
           0.0462,
           0.7155,
@@ -71,6 +72,7 @@
       "label_unit": "element",
       "primary": {
         "screen_index": 5,
+        "element_id": "div-160xdz7",
         "bbox": [
           0.0462,
           0.4951,

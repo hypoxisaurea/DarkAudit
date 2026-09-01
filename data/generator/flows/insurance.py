@@ -70,8 +70,14 @@ def screen_3(cfg: dict) -> str:
     sense = " sense" if "DA-13" in p else ""
     da13 = ' data-da="DA-13"' if "DA-13" in p else ""
 
-    # DA-04 clean 일 때만 전체해제 컨트롤을 노출 (mitigating_checks 대응)
-    bulk = "" if "DA-04" in p else '<div class="note">선택하신 항목만 보험료에 합산됩니다.</div>'
+    # 전체선택·전체취소 컨트롤 = DA-04 의 mitigating_check(select_all_available).
+    # mitigate_DA-04 를 켜면 사전선택은 유지한 채 완화 요건만 충족시킨다.
+    if "mitigate_DA-04" in p:
+        bulk = '<div class="bulk" data-da-mitigate="DA-04">전체선택 / 전체취소</div>'
+    elif "DA-04" in p:
+        bulk = ""
+    else:
+        bulk = '<div class="note">선택하신 항목만 보험료에 합산됩니다.</div>'
 
     inner = f"""
     <h2>부가서비스를 확인해 주세요</h2>
@@ -91,16 +97,37 @@ def screen_3(cfg: dict) -> str:
 
 
 def screen_4(cfg: dict) -> str:
-    """보험료 확인 — DA-15 의 가격 변동이 드러나는 지점."""
-    p = cfg["patterns"]
-    total = cfg["final_price"] if "DA-04" in p else cfg["base_price"]
-    da15 = ' data-da="DA-15"' if "DA-15" in p else ""
+    """
+    보험료 확인 — 금액 구성이 드러나는 지점.
 
-    extra = ""
+    DA-04 와 DA-15 를 분리한다.
+      DA-04  사전선택된 부가서비스 비용. S3 에서 이미 가격이 공개되어 있다.
+      DA-15  이전 화면에 전혀 없던 비용이 여기서 처음 등장한다.
+
+    처음에는 금액 상승을 DA-04 에만 연동했으나, 그러면 DA-15 단독 Flow 에서
+    가격이 오르지 않아 라벨은 붙었는데 화면에는 드러나지 않는 문제가 생겼다.
+    (Rule Engine 평가에서 FN 으로 발견)
+    """
+    p = cfg["patterns"]
+    base = cfg["base_price"]
+    addon = 3000   # 사전선택 부가서비스
+    hidden = 3000  # 사전 미고지 비용
+
+    rows, total = [], base
     if "DA-04" in p:
-        extra = """
+        total += addon
+        rows.append(("안심케어 서비스", addon))
+    if "DA-15" in p:
+        total += hidden
+        rows.append(("계약 관리비", hidden))
+
+    da15 = ' data-da="DA-15"' if "DA-15" in p else ""
+    extra = "".join(
+        f"""
       <div class="hr"></div>
-      <div class="row"><span class="k">안심케어 서비스</span><span class="v">3,000원</span></div>"""
+      <div class="row"><span class="k">{k}</span><span class="v">{v:,}원</span></div>"""
+        for k, v in rows
+    )
 
     inner = f"""
     <h2>최종 보험료를 확인해 주세요</h2>
@@ -109,7 +136,7 @@ def screen_4(cfg: dict) -> str:
       <div class="price"{da15}>월 {total:,}<span class="u">원</span></div>
     </div>
     <div class="card">
-      <div class="row"><span class="k">기본 보험료</span><span class="v">{cfg['base_price']:,}원</span></div>{extra}
+      <div class="row"><span class="k">기본 보험료</span><span class="v">{base:,}원</span></div>{extra}
       <div class="hr"></div>
       <div class="row"><span class="k">합계</span><span class="v">{total:,}원</span></div>
     </div>"""
