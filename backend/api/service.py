@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 import threading
 from pathlib import Path
@@ -18,8 +17,10 @@ from ai.providers import create_provider
 from ai.providers.computer_use import OpenAIComputerUseAgent
 from ai.rules.rule_loader import RuleLoader
 from ai.schemas.audit_schema import AuditScreen, LLMAuditOutput, LLMAuditRequest
+from backend.app.fingerprint import make as make_fingerprint
 from backend.app.models import (
     AuditRun,
+    Element,
     Evidence,
     Finding,
     FindingStatus,
@@ -28,6 +29,7 @@ from backend.app.models import (
     Screen,
     Severity,
 )
+from backend.app.regression import compare
 
 from .schemas import JobDto
 from .store import SessionLocal, new_id
@@ -106,6 +108,7 @@ def analyze_uploaded_screens(job_id: str, run_id: int, local_paths: list[Path]) 
             output = BaselineAuditPipeline(create_provider()).analyze(request)
             _update_job(job_id, progress=80)
             _store_output(session, run, output)
+            _apply_regression(session, run)
             session.commit()
         _update_job(job_id, status="completed", progress=100)
     except Exception as exc:  # background jobs must expose failures to the polling client
@@ -154,6 +157,7 @@ def capture_and_analyze_url(
                     )
                 )
             _store_output(session, run, result.analysis)
+            _apply_regression(session, run)
             session.commit()
         _update_job(job_id, status="completed", progress=100)
     except Exception as exc:
@@ -181,16 +185,44 @@ def _fail_job(job_id: str, run_id: int, exc: Exception) -> None:
 
 
 def _store_output(session, run: AuditRun, output: LLMAuditOutput) -> None:
-    screen_index = {
-        reference.screen_id: index for index, reference in enumerate(output.screens, 1)
+    ordered_screens = sorted(run.screens, key=lambda screen: screen.screen_index)
+    if len(ordered_screens) != len(output.screens):
+        raise ValueError("분석 결과의 화면 수가 저장된 화면 수와 다릅니다.")
+    screens = {
+        reference.screen_id: screen
+        for reference, screen in zip(output.screens, ordered_screens, strict=True)
     }
+    rules = rules_by_id()
     for detection in output.detections:
-        indices = [screen_index[sid] for sid in detection.where.screen_ids if sid in screen_index]
-        raw = f"{detection.rule_id}|{indices}|{detection.where.element}|{detection.what}"
+        referenced = [screens[screen_id] for screen_id in detection.where.screen_ids]
+        indices = [screen.screen_index for screen in referenced]
+        label_unit = rules[detection.rule_id]["label_unit"]
+        primary = None
+        if label_unit == "element":
+            primary = Element(
+                screen=referenced[0],
+                element_type="vision",
+                text=detection.where.element,
+                bbox_x=0.0,
+                bbox_y=0.0,
+                bbox_w=0.0,
+                bbox_h=0.0,
+                source="vision",
+                confidence=detection.confidence,
+            )
+            session.add(primary)
+            session.flush()
+
         finding = Finding(
             rule_id=detection.rule_id,
-            label_unit="flow" if len(indices) > 1 else "screen",
-            fingerprint=f"{detection.rule_id}:{hashlib.sha1(raw.encode('utf-8')).hexdigest()[:12]}",
+            label_unit=label_unit,
+            fingerprint=make_fingerprint(
+                detection.rule_id,
+                screen_index=indices[0] if indices else None,
+                text=detection.where.element,
+                label_unit=label_unit,
+            ),
+            primary_element=primary,
             screen_indices=indices,
             base_severity=Severity(detection.severity.value),
             severity=Severity(detection.severity.value),
@@ -202,7 +234,7 @@ def _store_output(session, run: AuditRun, output: LLMAuditOutput) -> None:
         )
         finding.evidence = Evidence(
             where_text=detection.where.location,
-            what_text=detection.where.element or detection.what,
+            what_text=detection.what,
             observation=detection.observation,
             rule_ref=detection.rule_id,
             why_text=detection.why,
@@ -211,4 +243,18 @@ def _store_output(session, run: AuditRun, output: LLMAuditOutput) -> None:
         )
         run.findings.append(finding)
     run.status = RunStatus.DONE
+
+
+def _apply_regression(session, run: AuditRun) -> None:
+    previous = session.scalar(
+        select(AuditRun)
+        .where(
+            AuditRun.audit_id == run.audit_id,
+            AuditRun.version < run.version,
+            AuditRun.status == RunStatus.DONE,
+        )
+        .order_by(AuditRun.version.desc())
+    )
+    if previous is not None:
+        compare(session, run.audit_id, previous.version, run.version)
 
