@@ -17,7 +17,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.models import (
@@ -43,6 +43,10 @@ def init_db() -> None:
         path = DB_URL.replace("sqlite:///", "")
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     Base.metadata.create_all(_engine)
+    columns = {column["name"] for column in inspect(_engine).get_columns("screen")}
+    if "flow_step" not in columns:
+        with _engine.begin() as connection:
+            connection.execute(text("ALTER TABLE screen ADD COLUMN flow_step VARCHAR(200)"))
 
 
 def utcnow() -> datetime:
