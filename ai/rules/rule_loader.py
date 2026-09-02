@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import AbstractSet, Any
 
 
 class RuleLoader:
@@ -23,7 +23,7 @@ class RuleLoader:
         self._validate(document)
         return document
 
-    def rules(self, priority: str | None = None, rule_ids: set[str] | None = None) -> list[dict[str, Any]]:
+    def rules(self, priority: str | None = None, rule_ids: AbstractSet[str] | None = None) -> list[dict[str, Any]]:
         rules = self.load()["rules"]
         return [rule for rule in rules if (priority is None or rule["mvp_priority"] == priority)
                 and (rule_ids is None or rule["rule_id"] in rule_ids)]

@@ -6,7 +6,7 @@ from ai.rules.rule_loader import RuleLoader
 from ai.schemas.audit_schema import LLMAuditOutput, LLMAuditRequest
 from .response_parser import parse_audit_response
 
-MVP_RULE_IDS = {"DA-03", "DA-04", "DA-12", "DA-15"}
+MVP_RULE_IDS = frozenset({"DA-03", "DA-04", "DA-12", "DA-15"})
 
 class BaselineAuditPipeline:
     def __init__(self, provider: MultimodalProvider, rule_loader: RuleLoader | None = None,
