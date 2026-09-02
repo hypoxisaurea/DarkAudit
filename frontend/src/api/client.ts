@@ -21,10 +21,6 @@ export function resolveApiUrl(value: string) {
   return value.startsWith("/") && API_BASE_URL ? `${API_BASE_URL}${value}` : value;
 }
 
-function getAccessToken() {
-  return sessionStorage.getItem("darkaudit.accessToken");
-}
-
 function errorMessage(body?: ApiErrorBody) {
   if (body?.message) return body.message;
   if (typeof body?.detail === "string") return body.detail;
@@ -41,17 +37,14 @@ export async function apiRequest<T>(
     () => controller.abort(),
     init?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );
-  const token = getAccessToken();
   const isFormData = init?.body instanceof FormData;
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       signal: init?.signal ?? controller.signal,
-      credentials: "include",
       headers: {
         ...(isFormData ? {} : { "Content-Type": "application/json" }),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...init?.headers,
       },
     });

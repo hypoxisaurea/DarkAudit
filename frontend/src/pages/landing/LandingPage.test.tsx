@@ -16,5 +16,6 @@ describe("LandingPage", () => {
       "href",
       "/app/overview",
     );
+    expect(screen.queryByText(/로그인|회원가입/)).not.toBeInTheDocument();
   });
 });

@@ -85,6 +85,20 @@ export type CaptureAuditUrlDto = {
   goal?: string;
 };
 
+export type ImportFigmaAuditDto = {
+  auditId: string;
+  fileUrl: string;
+  target: AuditDto["platform"];
+  selectionMode: "prototype-flow" | "all-frames";
+  flowName?: string;
+};
+
+export type AnalyzeAndroidAppDto = {
+  auditId: string;
+  appFile: File;
+  goal?: string;
+};
+
 export type AnalysisJobDto = {
   jobId: string;
   auditId: string;

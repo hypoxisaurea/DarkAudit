@@ -1,10 +1,12 @@
 import { apiRequest } from "@/api/client";
 import { analysisJobSchema, auditSchema } from "@/api/schemas";
 import type {
+  AnalyzeAndroidAppDto,
   AuditDto,
   CreateAuditDto,
   CaptureAuditUrlDto,
   FindingStatus,
+  ImportFigmaAuditDto,
   UploadAuditScreen,
 } from "@/entities/audit/types";
 
@@ -56,6 +58,29 @@ export async function captureAuditUrl({ auditId, ...input }: CaptureAuditUrlDto)
     await apiRequest<unknown>(`/api/v1/audits/${auditId}/capture`, {
       method: "POST",
       body: JSON.stringify(input),
+      timeoutMs: 120_000,
+    }),
+  );
+}
+
+export async function importFigmaAudit({ auditId, ...input }: ImportFigmaAuditDto) {
+  return analysisJobSchema.parse(
+    await apiRequest<unknown>(`/api/v1/audits/${auditId}/figma`, {
+      method: "POST",
+      body: JSON.stringify(input),
+      timeoutMs: 120_000,
+    }),
+  );
+}
+
+export async function analyzeAndroidApp({ auditId, appFile, goal }: AnalyzeAndroidAppDto) {
+  const body = new FormData();
+  body.append("app", appFile, appFile.name);
+  if (goal) body.append("goal", goal);
+  return analysisJobSchema.parse(
+    await apiRequest<unknown>(`/api/v1/audits/${auditId}/mobile-app`, {
+      method: "POST",
+      body,
       timeoutMs: 120_000,
     }),
   );
