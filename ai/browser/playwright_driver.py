@@ -14,6 +14,122 @@ from .profiles import DeviceProfile
 from .safety import UnsafeUrlError, UrlSafetyPolicy
 
 
+# backend.app.rule_engine.core.load_flow() 가 기대하는 element 스키마.
+# data/generator/extract_ui.py 의 색상/대비 유틸을 그대로 쓰되, 요소 선택과
+# element_type 판정은 임의 사이트에서 동작하도록 태그/role/type 기반으로 바꿨다.
+_RULE_ENGINE_EXTRACT_JS = r"""
+() => {
+  const rgb = (s) => {
+    const m = (s || '').match(/[\d.]+/g);
+    if (!m) return null;
+    return { r: +m[0], g: +m[1], b: +m[2], a: m.length > 3 ? +m[3] : 1 };
+  };
+  const lum = (c) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  };
+  const bgOf = (el) => {
+    let n = el;
+    while (n && n !== document.documentElement) {
+      const c = rgb(getComputedStyle(n).backgroundColor);
+      if (c && c.a > 0.05) return c;
+      n = n.parentElement;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  };
+  const contrast = (fg, bg) => {
+    if (!fg || !bg) return null;
+    const a = lum(fg), b = lum(bg);
+    return +(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05))).toFixed(2);
+  };
+
+  const daId = (el) => {
+    const tag = el.tagName.toLowerCase();
+    const cls = (el.className || '').toString().trim().split(/\s+/).filter(Boolean).sort().join('.');
+    const txt = (el.innerText || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+    const path = [];
+    let n = el;
+    while (n && n !== document.body && path.length < 4) {
+      path.push(n.tagName.toLowerCase()); n = n.parentElement;
+    }
+    const raw = [path.reverse().join('>'), cls, txt].join('|');
+    let h = 0;
+    for (let i = 0; i < raw.length; i++) { h = (h * 31 + raw.charCodeAt(i)) | 0; }
+    return tag + '-' + (h >>> 0).toString(36);
+  };
+
+  // 금액/이율 표기가 섞인 텍스트는 price 로, 그 외는 태그/role 기반으로 판정한다.
+  const MONEY_OR_RATE = /[\d][\d,]*\s*원|[\d.]+\s*%/;
+  const typeOf = (el, text) => {
+    const tag = el.tagName.toLowerCase();
+    const role = (el.getAttribute('role') || '').toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    if (tag === 'input' && (type === 'checkbox' || type === 'radio')) return 'checkbox';
+    if (role === 'checkbox' || role === 'radio') return 'checkbox';
+    if (tag === 'button' || role === 'button' || (tag === 'input' && (type === 'button' || type === 'submit'))) return 'button';
+    if (tag === 'a' || role === 'link') return 'link';
+    if (MONEY_OR_RATE.test(text || '')) return 'price';
+    return 'text';
+  };
+
+  // 같은 텍스트를 감싼 중첩 래퍼가 중복 요소로 잡히지 않도록,
+  // 자기 자신의 직속 텍스트 노드가 있거나 상호작용 요소인 경우만 취급한다.
+  const hasOwnText = (el) => Array.from(el.childNodes).some(
+    (n) => n.nodeType === 3 && n.textContent.trim().length > 0
+  );
+
+  const W = window.innerWidth, H = window.innerHeight;
+  const SEL = 'button, a, input, select, textarea, label, '
+            + '[role="button"], [role="link"], [role="checkbox"], [role="radio"], '
+            + 'h1, h2, h3, h4, p, li, span';
+  const INTERACTIVE = new Set(['button', 'checkbox', 'link']);
+
+  const out = [];
+  const seen = new Set();
+  document.querySelectorAll(SEL).forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    if (r.bottom < 0 || r.right < 0 || r.top > H || r.left > W) return;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') return;
+
+    const text = (el.innerText || el.value || el.textContent || '').trim().replace(/\s+/g, ' ');
+    const elementType = typeOf(el, text);
+    if (elementType === 'text' && !hasOwnText(el)) return;
+    if (elementType === 'text' && !text) return;
+
+    const id = daId(el);
+    if (seen.has(id)) return;
+    seen.add(id);
+
+    const fg = rgb(cs.color);
+    const bg = bgOf(el);
+    const animated = cs.animationName !== 'none' && cs.animationName !== '';
+
+    out.push({
+      element_id: id,
+      element_type: elementType,
+      text: text.slice(0, 200) || null,
+      bbox: [ +(r.x / W).toFixed(4), +(r.y / H).toFixed(4),
+              +(r.width / W).toFixed(4), +(r.height / H).toFixed(4) ],
+      state: {
+        checked: 'checked' in el ? Boolean(el.checked) : null,
+        disabled: 'disabled' in el ? Boolean(el.disabled) : null,
+      },
+      computed_style: {
+        font_size: parseFloat(cs.fontSize) || null,
+        contrast_ratio: contrast(fg, bg),
+        area_ratio: +((r.width * r.height) / (W * H)).toFixed(5),
+        animated: animated,
+      },
+    });
+  });
+
+  return out.slice(0, 250);
+}
+"""
+
+
 def _safe_segment(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-")
     if not cleaned:
@@ -164,6 +280,7 @@ class PlaywrightBrowserSession:
         )
         visible_text = self._visible_text()
         elements = tuple(self._interactive_elements())
+        dom_elements = tuple(self._rule_engine_elements())
         return CaptureArtifact(
             screen_id=f"{self.profile.name}_{index:02d}",
             flow_step=f"{self.profile.name}: {flow_step}",
@@ -177,6 +294,7 @@ class PlaywrightBrowserSession:
             action=action,
             visible_text=visible_text,
             interactive_elements=elements,
+            dom_elements=dom_elements,
             fingerprint=hashlib.sha256(image).hexdigest(),
         )
 
@@ -294,6 +412,19 @@ class PlaywrightBrowserSession:
                 })
                 """
             )
+        except Exception:
+            return []
+
+    def _rule_engine_elements(self) -> list[dict[str, Any]]:
+        """DOM 을 backend.app.rule_engine 이 소비하는 Element 형태로 추출한다.
+
+        data/generator/extract_ui.py 는 합성 데이터셋 전용 클래스명(.btn/.box 등)에
+        기대는 반면, 여기서는 임의의 실제 페이지를 다뤄야 하므로 태그/role/type
+        기반의 일반화된 규칙으로 element_type 을 판정한다. contrast/area 계산
+        로직 자체는 extract_ui.py 와 동일하다.
+        """
+        try:
+            return self._page.evaluate(_RULE_ENGINE_EXTRACT_JS)
         except Exception:
             return []
 

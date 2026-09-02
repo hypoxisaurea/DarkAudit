@@ -50,6 +50,8 @@ class DetectingProvider:
                         "element": "해외 치료비 보장",
                         "location": "추가 보장 선택 영역",
                     },
+                    "bbox": [0.1, 0.2, 0.05, 0.05],
+                    "related_elements": [],
                     "what": "유료 선택 항목이 미리 선택되어 있습니다.",
                     "observation": "체크박스가 선택 상태로 표시됩니다.",
                     "rule_id": "DA-04",

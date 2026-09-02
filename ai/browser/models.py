@@ -97,6 +97,9 @@ class CaptureArtifact:
     action: BrowserAction | None = None
     visible_text: str = ""
     interactive_elements: tuple[dict[str, Any], ...] = ()
+    # Rule Engine 입력 형식(element_id/element_type/bbox/state/computed_style).
+    # data/generator/extract_ui.py 의 스키마를 실제 페이지용으로 일반화한 것이다.
+    dom_elements: tuple[dict[str, Any], ...] = ()
     fingerprint: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -112,6 +115,7 @@ class CaptureArtifact:
             "action": self.action.to_dict() if self.action else None,
             "visibleText": self.visible_text,
             "interactiveElements": list(self.interactive_elements),
+            "domElements": list(self.dom_elements),
             "fingerprint": self.fingerprint,
         }
 
