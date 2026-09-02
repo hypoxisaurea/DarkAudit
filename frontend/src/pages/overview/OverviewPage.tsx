@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   CalendarDays,
-  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -25,58 +24,6 @@ import type { AuditDto, AuditScreenDto, FindingDto } from "@/entities/audit/type
 import { useDashboardSummary } from "@/features/audit-dashboard/useDashboardSummary";
 import { useFindingStatus } from "@/features/finding-review/useFindingStatus";
 import { cn } from "@/lib/cn";
-
-function MobileScreen({ complete = false }: { complete?: boolean }) {
-  return (
-    <div className="mx-auto h-full min-h-56 w-[210px] rounded-t-[28px] border-[6px] border-[#252927] bg-white p-4 shadow-xl sm:w-[240px]">
-      <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-black/70" />
-      {complete ? (
-        <div className="flex h-40 flex-col items-center justify-center text-center">
-          <span className="flex size-10 items-center justify-center rounded-full bg-brand-600 text-white">
-            <Check size={22} />
-          </span>
-          <p className="mt-4 text-sm font-bold">신청이 완료되었습니다</p>
-        </div>
-      ) : (
-        <>
-          <p className="text-sm font-bold">보험 옵션을 선택해주세요</p>
-          <p className="mt-5 text-[9px] font-semibold">필수 보장</p>
-          <div className="mt-2 flex justify-between rounded border border-border p-3 text-[9px]">
-            <span>상해 사망 / 후유장해</span>
-            <span>가입됨 ✓</span>
-          </div>
-          <p className="mt-5 text-[9px] font-semibold">추가 보장 (선택)</p>
-          <div className="mt-2 flex items-center gap-2 rounded border-2 border-danger/45 bg-danger/5 p-3 text-[9px]">
-            <span className="flex size-4 items-center justify-center rounded bg-brand-600 text-white">
-              <Check size={10} />
-            </span>
-            <span className="flex-1">해외 의료비 보장</span>
-            <strong>+₩3,000 / 월</strong>
-          </div>
-          <div className="mt-2 flex items-center gap-2 rounded border border-border p-3 text-[9px]">
-            <span className="size-4 rounded border border-border" />
-            <span className="flex-1">골절 진단비 보장</span>
-            <strong>+₩2,000 / 월</strong>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function MiniScreen({ index }: { index: number }) {
-  return (
-    <div className="h-22 w-14 rounded border border-border bg-white p-1.5 shadow-sm">
-      <div className="h-1 w-5 rounded bg-black/70" />
-      <div className="mt-2 h-1.5 w-8 rounded bg-black/60" />
-      <div className="mt-2 space-y-1">
-        <div className="h-2 rounded bg-brand-50" />
-        <div className={cn("h-2 rounded", index === 1 ? "bg-danger/20" : "bg-black/5")} />
-        <div className="h-2 rounded bg-black/5" />
-      </div>
-    </div>
-  );
-}
 
 function FlowOverview({
   screens,
@@ -116,8 +63,13 @@ function FlowOverview({
                 </span>
               )}
             </div>
-            <div className="mx-auto mt-4 w-fit">
-              <MiniScreen index={index} />
+            <div className="mx-auto mt-4 flex h-24 w-16 items-center justify-center overflow-hidden rounded border border-border bg-white shadow-sm">
+              <img
+                alt={`${screen.flowStep} 캡처 화면`}
+                className="max-h-full max-w-full object-contain"
+                loading="lazy"
+                src={screen.imageUrl}
+              />
             </div>
             <p className="mt-2 truncate text-[10px] font-medium">{screen.flowStep}</p>
           </button>
@@ -131,8 +83,12 @@ function ScreenPreview({ screen }: { screen: AuditScreenDto }) {
   return (
     <Card className="relative mt-4 min-h-[380px] overflow-hidden p-5">
       <h2 className="text-sm font-bold">화면 미리보기</h2>
-      <div className="absolute inset-x-0 bottom-0 top-14 flex items-end justify-center bg-gradient-to-b from-white to-brand-50/60">
-        <MobileScreen complete={screen.flowStep === "완료"} />
+      <div className="absolute inset-x-0 bottom-0 top-14 flex items-center justify-center overflow-auto bg-gradient-to-b from-white to-brand-50/60 p-5">
+        <img
+          alt={`${screen.flowStep} 캡처 화면 미리보기`}
+          className="max-h-full max-w-full rounded border border-border bg-white object-contain shadow-sm"
+          src={screen.imageUrl}
+        />
       </div>
       <div className="absolute right-4 top-20 overflow-hidden rounded-control border border-border bg-white shadow-sm">
         {[ZoomIn, ZoomOut, Search, Expand].map((Icon, index) => (
