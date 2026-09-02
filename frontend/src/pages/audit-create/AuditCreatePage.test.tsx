@@ -29,9 +29,10 @@ describe("AuditCreatePage", () => {
     expect(screen.queryByLabelText("플랫폼")).not.toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: /Figma/ }));
     expect(screen.getByLabelText("Figma 파일 링크")).toBeInTheDocument();
+    expect(screen.queryByText("Figma 계정 연결")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "모바일 앱" })).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: /Android 앱/ }));
-    expect(screen.getByText("Android 테스트 기기")).toBeInTheDocument();
+    expect(screen.queryByText(/테스트 기기|화면 유형|Pixel|Galaxy/)).not.toBeInTheDocument();
     expect(screen.getByText(/iOS 자동화에는 별도 macOS/)).toBeInTheDocument();
   });
 

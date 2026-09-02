@@ -1,9 +1,7 @@
 import {
   Bell,
   BookOpen,
-  Building2,
   ChartNoAxesColumn,
-  ChevronDown,
   ClipboardList,
   Home,
   Menu,
@@ -62,16 +60,6 @@ function Sidebar() {
           </p>
           <button className="mt-4 text-xs font-semibold text-brand-400">자세히 보기 →</button>
         </div>
-        <button className="flex w-full items-center gap-3 rounded-card border border-white/20 p-4 text-left">
-          <Building2 size={23} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">다온손해보험</span>
-            <span className="mt-1 inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/60">
-              기업용
-            </span>
-          </span>
-          <ChevronDown size={16} />
-        </button>
       </div>
     </aside>
   );
@@ -89,14 +77,6 @@ function AppHeader() {
           <Bell size={20} />
           <span className="absolute right-1.5 top-1.5 size-2 rounded-full border-2 border-white bg-success" />
         </button>
-        <span className="flex size-9 items-center justify-center rounded-full bg-brand-950 text-xs font-semibold text-white">
-          HJ
-        </span>
-        <div className="hidden sm:block">
-          <p className="text-sm font-semibold">김현진</p>
-          <p className="text-xs text-muted">준법감시 담당자</p>
-        </div>
-        <ChevronDown className="hidden text-muted sm:block" size={16} />
       </div>
     </header>
   );

@@ -10,9 +10,8 @@ import {
 } from "lucide-react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 
-import { resolveApiUrl } from "@/api/client";
 import { Button } from "@/components/ui/Button";
-import type { AuditDto, AnalyzeAndroidAppDto } from "@/entities/audit/types";
+import type { AuditDto } from "@/entities/audit/types";
 import { cn } from "@/lib/cn";
 
 export type AuditSource = "website" | "figma" | "android" | "screenshots";
@@ -168,24 +167,14 @@ export function FigmaFields({
   flowName: string;
   setFlowName: (value: string) => void;
 }) {
-  const connectUrl = `${resolveApiUrl("/api/v1/integrations/figma/connect")}?returnTo=${encodeURIComponent(window.location.pathname)}`;
   return (
     <section className="mt-7" aria-labelledby="figma-source-title">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="font-bold" id="figma-source-title">
-            Figma 디자인 진단
-          </h2>
-          <p className="mt-1 text-xs text-muted">
-            프레임 이미지와 레이어 정보를 가져와 개발 전에 검사합니다.
-          </p>
-        </div>
-        <Button asChild variant="outline">
-          <a href={connectUrl}>
-            <PenTool size={15} /> Figma 계정 연결
-          </a>
-        </Button>
-      </div>
+      <h2 className="font-bold" id="figma-source-title">
+        Figma 디자인 진단
+      </h2>
+      <p className="mt-1 text-xs text-muted">
+        프레임 이미지와 레이어 정보를 가져와 개발 전에 검사합니다.
+      </p>
       <FieldLabel htmlFor="figma-url" className="mt-5">
         Figma 파일 링크
       </FieldLabel>
@@ -198,7 +187,7 @@ export function FigmaFields({
         onChange={setFileUrl}
       />
       <p className="mt-2 text-xs text-muted">
-        비공개 파일은 파일 접근 권한을 가진 Figma 계정 연결이 필요합니다.
+        MVP에서는 링크로 접근할 수 있는 Figma 파일을 지원합니다.
       </p>
       <FieldTitle>디자인 대상</FieldTitle>
       <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -252,16 +241,12 @@ export function FigmaFields({
 export function AndroidFields({
   appFile,
   setAppFile,
-  device,
-  setDevice,
   goal,
   setGoal,
   inputRef,
 }: {
   appFile?: File;
   setAppFile: (file?: File) => void;
-  device: AnalyzeAndroidAppDto["device"];
-  setDevice: (device: AnalyzeAndroidAppDto["device"]) => void;
   goal: string;
   setGoal: (value: string) => void;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -301,23 +286,6 @@ export function AndroidFields({
           <X size={13} /> 선택 취소
         </button>
       )}
-      <FieldTitle>Android 테스트 기기</FieldTitle>
-      <div className="mt-2 grid gap-2 sm:grid-cols-3">
-        {(
-          [
-            ["pixel-8", "Pixel 8"],
-            ["pixel-fold", "Pixel Fold"],
-            ["galaxy-s24", "Galaxy S24"],
-          ] as const
-        ).map(([value, label]) => (
-          <SmallChoice
-            key={value}
-            active={device === value}
-            label={label}
-            onClick={() => setDevice(value)}
-          />
-        ))}
-      </div>
       <TextAreaField
         id="android-goal"
         label="탐색 목표"

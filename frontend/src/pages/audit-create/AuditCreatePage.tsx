@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import type { AnalyzeAndroidAppDto, AuditDto } from "@/entities/audit/types";
+import type { AuditDto } from "@/entities/audit/types";
 import {
   useAnalysisStatus,
   useAnalyzeAndroidApp,
@@ -47,7 +47,6 @@ export function AuditCreatePage() {
   );
   const [figmaFlow, setFigmaFlow] = useState("");
   const [appFile, setAppFile] = useState<File>();
-  const [androidDevice, setAndroidDevice] = useState<AnalyzeAndroidAppDto["device"]>("pixel-8");
   const [androidGoal, setAndroidGoal] = useState("");
   const [uploadPlatform, setUploadPlatform] = useState<AuditDto["platform"]>("mobile-web");
   const [screens, setScreens] = useState<UploadScreen[]>([]);
@@ -142,7 +141,6 @@ export function AuditCreatePage() {
       const job = await analyzeAndroid.mutateAsync({
         auditId: audit.id,
         appFile,
-        device: androidDevice,
         goal: androidGoal.trim() || undefined,
       });
       setJobId(job.jobId);
@@ -258,8 +256,6 @@ export function AuditCreatePage() {
               <AndroidFields
                 appFile={appFile}
                 setAppFile={setAppFile}
-                device={androidDevice}
-                setDevice={setAndroidDevice}
                 goal={androidGoal}
                 setGoal={setAndroidGoal}
                 inputRef={appInputRef}

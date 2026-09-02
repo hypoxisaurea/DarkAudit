@@ -96,7 +96,6 @@ export type ImportFigmaAuditDto = {
 export type AnalyzeAndroidAppDto = {
   auditId: string;
   appFile: File;
-  device: "pixel-8" | "pixel-fold" | "galaxy-s24";
   goal?: string;
 };
 

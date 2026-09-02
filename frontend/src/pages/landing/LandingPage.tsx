@@ -161,14 +161,9 @@ export function LandingPage() {
             <a href="#process">작동 방식</a>
             <a href="#cases">고객 사례</a>
           </nav>
-          <div className="flex items-center gap-3">
-            <Button className="hidden sm:inline-flex" variant="outline">
-              로그인
-            </Button>
-            <Button asChild>
-              <Link to="/app/overview">진단 시작하기</Link>
-            </Button>
-          </div>
+          <Button asChild>
+            <Link to="/app/overview">진단 시작하기</Link>
+          </Button>
         </header>
         <main className="page-container grid items-center gap-16 py-16 lg:grid-cols-[0.85fr_1.15fr] lg:py-20">
           <div>
@@ -209,7 +204,9 @@ export function LandingPage() {
       </section>
 
       <section className="page-container py-20 text-center" id="product">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">DarkAudit이 필요한 이유</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-600">
+          DarkAudit이 필요한 이유
+        </p>
         <h2 className="mt-4 text-3xl font-bold leading-tight">
           작은 UI 차이가
           <br />
