@@ -215,12 +215,6 @@ export function AuditCreatePage() {
             {...register("name")}
           />
           {errors.name && <p className="mt-2 text-xs text-danger">{errors.name.message}</p>}
-          <div className="mt-6 rounded-control bg-brand-50 p-4 text-xs leading-6 text-brand-900">
-            <strong className="block">플랫폼은 입력 소스에서 자동 결정됩니다.</strong>
-            <span>
-              웹은 선택한 화면 크기, Figma는 디자인 대상, APK는 Android 앱으로 기록합니다.
-            </span>
-          </div>
           <div className="mt-4 rounded-control border border-border p-4 text-xs leading-6 text-muted">
             자동 탐색은 결제·가입 완료·개인정보 제출과 같은 위험 동작을 수행하지 않습니다.
           </div>
