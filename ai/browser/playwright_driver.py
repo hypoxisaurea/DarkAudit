@@ -344,6 +344,10 @@ class PlaywrightBrowserSession:
 
     def _route_request(self, route: Any, request: Any) -> None:
         parsed = urlsplit(request.url)
+        is_main_navigation = (
+            request.is_navigation_request()
+            and request.frame == self._page.main_frame
+        )
         if parsed.scheme not in {"http", "https"}:
             if parsed.scheme in {"data", "blob", "about"}:
                 route.continue_()
@@ -357,12 +361,15 @@ class PlaywrightBrowserSession:
                 self._validated_hosts.add(hostname)
             if (
                 self._origin_url
-                and request.is_navigation_request()
-                and request.frame == self._page.main_frame
+                and is_main_navigation
             ):
                 self.url_policy.validate_same_origin(request.url, self._origin_url)
         except UnsafeUrlError as exc:
-            self._blocked_reason = str(exc)
+            # Pages may probe localhost for native security software. Keep the
+            # private request blocked, but do not fail an otherwise public audit.
+            # A blocked main-frame navigation still terminates the session.
+            if is_main_navigation:
+                self._blocked_reason = str(exc)
             route.abort("blockedbyclient")
             return
         route.continue_()
