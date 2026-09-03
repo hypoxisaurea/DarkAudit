@@ -8,12 +8,14 @@ from ai.schemas.audit_schema import (
     HybridAuditOutput,
     RuleCandidate,
     SCHEMA_VERSION,
+    SEMANTIC_ONLY_CHECKS_BY_RULE,
     Severity,
 )
 
 
 def candidate(
-    candidate_id="DA-04:screen-01:btn-1", rule_id="DA-04", primary_element_id="btn-1"
+    candidate_id="DA-04:screen-01:btn-1", rule_id="DA-04", primary_element_id="btn-1",
+    triggered_checks=None, measurements=None,
 ):
     return RuleCandidate(
         candidate_id=candidate_id,
@@ -21,8 +23,8 @@ def candidate(
         screen_id="screen-01",
         screen_index=1,
         primary_element_id=primary_element_id,
-        triggered_checks=(f"{rule_id}.default_checked",),
-        measurements={"checked": True},
+        triggered_checks=tuple(triggered_checks or (f"{rule_id}.default_checked",)),
+        measurements={"checked": True} if measurements is None else measurements,
         related_element_ids=(),
     )
 
@@ -131,6 +133,57 @@ class HybridContractTest(unittest.TestCase):
         )
         self.assertEqual(parsed.candidate_decisions[0].base_severity, Severity.HIGH)
 
+    def test_semantic_only_policy_contains_only_agreed_checks(self):
+        self.assertEqual(
+            SEMANTIC_ONLY_CHECKS_BY_RULE,
+            {
+                "DA-03": frozenset({"DA-03.optional_looks_mandatory"}),
+                "DA-12": frozenset({
+                    "DA-12.loss_framed_decline",
+                    "DA-12.trivializing_expression",
+                }),
+            },
+        )
+
+    def test_rejects_da07_skippable_keep_without_interaction_evidence(self):
+        candidate_id = "DA-07:screen-01:next"
+        da07_candidate = candidate(
+            candidate_id,
+            rule_id="DA-07",
+            primary_element_id="next",
+            triggered_checks=("DA-07.skippable_without_confirm",),
+            measurements={"interaction_evidence": False},
+        )
+        with self.assertRaisesRegex(ValueError, "requires interaction_evidence=true"):
+            HybridAuditOutput.from_dict(output([decision(candidate_id)]), [da07_candidate])
+
+    def test_accepts_da07_skippable_reject_without_interaction_evidence(self):
+        candidate_id = "DA-07:screen-01:next"
+        da07_candidate = candidate(
+            candidate_id,
+            rule_id="DA-07",
+            primary_element_id="next",
+            triggered_checks=("DA-07.skippable_without_confirm",),
+            measurements={},
+        )
+        parsed = HybridAuditOutput.from_dict(
+            output([decision(candidate_id, value="REJECT")]),
+            [da07_candidate],
+        )
+        self.assertEqual(parsed.candidate_decisions[0].decision, CandidateDecisionValue.REJECT)
+
+    def test_accepts_da07_skippable_keep_with_interaction_evidence(self):
+        candidate_id = "DA-07:screen-01:next"
+        da07_candidate = candidate(
+            candidate_id,
+            rule_id="DA-07",
+            primary_element_id="next",
+            triggered_checks=("DA-07.skippable_without_confirm",),
+            measurements={"interaction_evidence": True},
+        )
+        parsed = HybridAuditOutput.from_dict(output([decision(candidate_id)]), [da07_candidate])
+        self.assertEqual(parsed.candidate_decisions[0].decision, CandidateDecisionValue.KEEP)
+
     def test_rejects_new_finding_for_non_semantic_only_rule(self):
         raw = output([decision()])
         raw["semantic_findings"] = [da04_semantic_finding()]
@@ -155,7 +208,7 @@ class HybridContractTest(unittest.TestCase):
         prompt = Path("ai/prompts/audit_v1.md").read_text(encoding="utf-8")
         self.assertIn("DA-07", prompt)
         self.assertIn("footer", prompt)
-        self.assertIn("interaction evidence", prompt)
+        self.assertIn("interaction_evidence: true", prompt)
         self.assertIn("DA-07을 새 `semantic_findings`로 생성하지 않는다", prompt)
 
 

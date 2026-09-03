@@ -62,9 +62,20 @@ RULE_BASE_SEVERITY = {
     "DA-15": Severity.HIGH,
 }
 
-# New findings may only originate from rules with an explicitly agreed
-# semantic-only check. Candidate verification remains available for every rule.
-SEMANTIC_ONLY_RULE_IDS = frozenset({"DA-03", "DA-12"})
+# New findings may only originate from these explicitly agreed semantic-only
+# checks. Detection stays unchanged, so the Rule-level allow-list is derived
+# from this policy instead of being maintained separately.
+SEMANTIC_ONLY_CHECKS_BY_RULE = {
+    "DA-03": frozenset({"DA-03.optional_looks_mandatory"}),
+    "DA-12": frozenset({
+        "DA-12.loss_framed_decline",
+        "DA-12.trivializing_expression",
+    }),
+}
+SEMANTIC_ONLY_RULE_IDS = frozenset(SEMANTIC_ONLY_CHECKS_BY_RULE)
+
+INTERACTION_REQUIRED_CHECKS = frozenset({"DA-07.skippable_without_confirm"})
+INTERACTION_EVIDENCE_KEY = "interaction_evidence"
 
 NormalizedBBox = tuple[float, float, float, float]
 
@@ -398,9 +409,20 @@ class HybridAuditOutput:
 
         candidate_by_id = {candidate.candidate_id: candidate for candidate in self.candidates}
         for decision in self.candidate_decisions:
-            rule_id = candidate_by_id[decision.candidate_id].rule_id
+            candidate = candidate_by_id[decision.candidate_id]
+            rule_id = candidate.rule_id
             if decision.base_severity is not RULE_BASE_SEVERITY[rule_id]:
                 raise ValueError(f"base_severity does not match Rule Base for {rule_id}")
+            requires_interaction = INTERACTION_REQUIRED_CHECKS.intersection(candidate.triggered_checks)
+            has_interaction_evidence = candidate.measurements.get(INTERACTION_EVIDENCE_KEY) is True
+            if (
+                decision.decision is CandidateDecisionValue.KEEP
+                and requires_interaction
+                and not has_interaction_evidence
+            ):
+                raise ValueError(
+                    "DA-07.skippable_without_confirm requires interaction_evidence=true to KEEP"
+                )
         if any(finding.rule_id not in SEMANTIC_ONLY_RULE_IDS for finding in self.semantic_findings):
             raise ValueError("semantic_findings may only contain semantic-only rules")
         # Reuse the established detection-level screen, profile, and duplicate

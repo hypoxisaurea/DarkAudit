@@ -23,7 +23,7 @@
 - DA-07은 `HIDDEN_INFORMATION` / `숨겨진 정보`이며 후보가 있을 때만 판정한다. DA-07을 새 `semantic_findings`로 생성하지 않는다.
 - 작거나 흐린 텍스트라는 시각적 특징만으로 KEEP하지 않는다. 그 내용이 비용, 손실 위험, 핵심 조건, 소비자 권리처럼 의사결정에 중요한 정보일 때만 KEEP한다.
 - 저작권, 회사 주소, 사업자 정보, 일반 안내 링크 등 통상적인 footer 문구는 중요정보가 아니면 REJECT한다.
-- `DA-07.skippable_without_confirm`은 실제로 확인 없이 다음 단계로 진행된 interaction evidence가 있을 때만 KEEP한다. 정지 이미지에서 가능성을 추측하거나 evidence가 없으면 REJECT한다.
+- `DA-07.skippable_without_confirm`은 후보 measurements에 `interaction_evidence: true`가 있고 실제로 확인 없이 다음 단계로 진행된 근거가 있을 때만 KEEP한다. 정지 이미지에서 가능성을 추측하거나 해당 evidence가 없으면 반드시 REJECT한다.
 
 ## Severity 경계
 

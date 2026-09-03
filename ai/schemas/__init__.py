@@ -7,15 +7,20 @@ from .audit_schema import (
     Detection,
     DetectionLocation,
     HybridAuditOutput,
+    INTERACTION_EVIDENCE_KEY,
+    INTERACTION_REQUIRED_CHECKS,
     LLMAuditOutput,
     LLMAuditRequest,
     RelatedElement,
     RiskType,
     RuleCandidate,
+    SEMANTIC_ONLY_CHECKS_BY_RULE,
     SCHEMA_VERSION,
 )
 
 __all__ = ["AuditInput", "ScreenInput", "AuditFinding", "AuditOutput", "Evidence", "Severity",
            "AuditScreen", "CandidateDecision", "CandidateDecisionValue", "Detection",
-           "DetectionLocation", "HybridAuditOutput", "LLMAuditOutput", "LLMAuditRequest",
-           "RelatedElement", "RiskType", "RuleCandidate", "SCHEMA_VERSION"]
+           "DetectionLocation", "HybridAuditOutput", "INTERACTION_EVIDENCE_KEY",
+           "INTERACTION_REQUIRED_CHECKS", "LLMAuditOutput", "LLMAuditRequest",
+           "RelatedElement", "RiskType", "RuleCandidate", "SCHEMA_VERSION",
+           "SEMANTIC_ONLY_CHECKS_BY_RULE"]
