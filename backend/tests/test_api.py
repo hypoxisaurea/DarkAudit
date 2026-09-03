@@ -17,12 +17,14 @@ from fastapi.testclient import TestClient
 from ai.browser.models import CaptureArtifact, CaptureResult, ScanMode
 from ai.pipeline.web_audit import URLAuditResult, URLCaptureResult
 from ai.schemas.audit_schema import (
-    LLMAuditOutput,
+    HybridAuditOutput,
     RISK_NAME_MAP,
     RiskType,
+    RuleCandidate,
     ScreenReference,
 )
 from backend.api import service
+from backend.app.rule_engine.severity import ScoredFinding
 
 service.DATA_DIR = _temp_root
 service.UPLOAD_DIR = _temp_root / "uploads"
@@ -32,7 +34,7 @@ from backend.api.main import app
 
 
 class DetectingProvider:
-    def analyze(self, request, system_prompt, audit_prompt, rules, output_schema):
+    def analyze(self, request, system_prompt, audit_prompt, rules, output_schema, candidates=None):
         screen = request.screens[0]
         return {
             "audit_id": request.audit_id,
@@ -41,10 +43,11 @@ class DetectingProvider:
                 {"screen_id": item.screen_id, "flow_step": item.flow_step}
                 for item in request.screens
             ],
-            "detections": [
+            "candidate_decisions": [],
+            "semantic_findings": [
                 {
-                    "risk_type": RiskType.PRESELECTED_OPTION.value,
-                    "risk_name": RISK_NAME_MAP[RiskType.PRESELECTED_OPTION],
+                    "risk_type": RiskType.EMOTIONAL_LANGUAGE.value,
+                    "risk_name": RISK_NAME_MAP[RiskType.EMOTIONAL_LANGUAGE],
                     "where": {
                         "screen_ids": [screen.screen_id],
                         "element": "해외 치료비 보장",
@@ -54,9 +57,9 @@ class DetectingProvider:
                     "related_elements": [],
                     "what": "유료 선택 항목이 미리 선택되어 있습니다.",
                     "observation": "체크박스가 선택 상태로 표시됩니다.",
-                    "rule_id": "DA-04",
+                    "rule_id": "DA-12",
                     "why": "사용자가 추가 비용을 그대로 수용할 수 있습니다.",
-                    "severity": "HIGH",
+                    "severity": "REVIEW",
                     "confidence": 0.92,
                     "fix": "초기 상태를 미선택으로 변경합니다.",
                 }
@@ -107,7 +110,7 @@ class ApiIntegrationTest(unittest.TestCase):
         self.assertEqual(audit["status"], "completed")
         self.assertEqual(len(audit["findings"]), 1)
         finding = audit["findings"][0]
-        self.assertEqual(finding["ruleId"], "DA-04")
+        self.assertEqual(finding["ruleId"], "DA-12")
         self.assertEqual(finding["element"], "해외 치료비 보장")
 
         resolved = self.client.patch(
@@ -148,11 +151,13 @@ class ApiIntegrationTest(unittest.TestCase):
                     ),
                 ),
             ),
-            LLMAuditOutput(
+            HybridAuditOutput(
                 audit_id=audit_id,
-                schema_version="1.0",
+                schema_version="1.1",
                 screens=(ScreenReference("mobile-initial", "mobile: initial viewport"),),
-                detections=(),
+                candidate_decisions=(),
+                semantic_findings=(),
+                candidates=(),
             ),
         )
 
@@ -175,6 +180,132 @@ class ApiIntegrationTest(unittest.TestCase):
         audit = self.client.get("/api/v1/dashboard/summary").json()["audits"][0]
         self.assertEqual(audit["screens"][0]["flowStep"], "mobile: initial viewport")
         self.assertEqual(audit["screens"][0]["width"], 393)
+
+    def test_hybrid_output_merges_by_candidate_id_and_recalculates_severity(self) -> None:
+        audit_id = self.client.post(
+            "/api/v1/audits",
+            json={"name": "Hybrid URL audit", "platform": "mobile-web"},
+        ).json()["id"]
+        image_path = service.CAPTURE_DIR / "hybrid.png"
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        image_path.write_bytes(b"capture")
+        artifact = CaptureArtifact(
+            screen_id="mobile-hybrid",
+            flow_step="mobile: offer",
+            profile="mobile",
+            url="https://example.com",
+            title="Example",
+            image_path=image_path,
+            viewport_width=393,
+            viewport_height=852,
+            dom_elements=(
+                {
+                    "element_id": "keep-option", "element_type": "checkbox",
+                    "text": "Paid option", "bbox": [0.1, 0.2, 0.2, 0.1],
+                    "state": {"checked": True}, "computed_style": {},
+                },
+                {
+                    "element_id": "reject-footer", "element_type": "text",
+                    "text": "Copyright footer", "bbox": [0.1, 0.8, 0.6, 0.05],
+                    "state": {}, "computed_style": {"font_size": 10},
+                },
+            ),
+        )
+        capture = URLCaptureResult(
+            audit_id=audit_id,
+            url="https://example.com",
+            mode=ScanMode.QUICK,
+            profiles=(CaptureResult(
+                audit_id=audit_id,
+                profile="mobile",
+                mode=ScanMode.QUICK,
+                artifacts=(artifact,),
+                stop_reason="quick capture completed",
+            ),),
+        )
+        rule_findings = [
+            ScoredFinding(
+                rule_id="DA-04", label_unit="element", screen_index=1,
+                primary_id="keep-option", triggered_checks=["premium_option_default"],
+                measurements={"checked": True},
+            ),
+            ScoredFinding(
+                rule_id="DA-04", label_unit="element", screen_index=1,
+                primary_id="reject-footer", triggered_checks=["premium_option_default"],
+                measurements={"checked": False},
+            ),
+        ]
+        seen_candidates = []
+
+        def analyze(request, candidates):
+            seen_candidates.extend(candidates)
+            decisions = [
+                {
+                    "candidate_id": item["candidate_id"],
+                    "decision": "KEEP" if item["primary_element_id"] == "keep-option" else "REJECT",
+                    "reason": "Verified against the captured screen",
+                    "confidence": 0.91,
+                    "base_severity": "HIGH",
+                }
+                for item in reversed(candidates)
+            ]
+            semantic = {
+                "risk_type": RiskType.EMOTIONAL_LANGUAGE.value,
+                "risk_name": RISK_NAME_MAP[RiskType.EMOTIONAL_LANGUAGE],
+                "where": {
+                    "screen_ids": ["mobile-hybrid"],
+                    "element": "Lose your benefits",
+                    "location": "offer footer",
+                },
+                "bbox": [0.1, 0.7, 0.5, 0.08],
+                "related_elements": [],
+                "what": "Loss-framed decline",
+                "observation": "The decline label says benefits will be lost",
+                "rule_id": "DA-12",
+                "why": "The wording frames decline as a loss",
+                "severity": "REVIEW",
+                "confidence": 0.9,
+                "fix": "Use a neutral decline label",
+            }
+            raw = {
+                "audit_id": audit_id,
+                "schema_version": "1.1",
+                "screens": [{"screen_id": "mobile-hybrid", "flow_step": "mobile: offer"}],
+                "candidate_decisions": decisions,
+                "semantic_findings": [semantic],
+            }
+            return HybridAuditOutput.from_dict(
+                raw, [RuleCandidate.from_dict(item) for item in candidates]
+            )
+
+        with (
+            patch("backend.api.main.UrlSafetyPolicy.validate", return_value="https://example.com"),
+            patch("backend.api.service.URLCapturePipeline.run", return_value=capture),
+            patch("backend.api.service._run_rule_engine", return_value=rule_findings),
+            patch("backend.api.service.BaselineAuditPipeline.analyze", side_effect=analyze),
+        ):
+            queued = self.client.post(
+                f"/api/v1/audits/{audit_id}/capture",
+                json={"url": "https://example.com", "mode": "quick", "profiles": ["mobile"]},
+            )
+
+        job = self.client.get(f"/api/v1/analysis-jobs/{queued.json()['jobId']}").json()
+        self.assertEqual(job["status"], "completed", job)
+        self.assertEqual(
+            {tuple(item) for item in (
+                (candidate["candidate_id"], candidate["screen_id"], candidate["screen_index"])
+                for candidate in seen_candidates
+            )},
+            {
+                ("DA-04:mobile-hybrid:keep-option", "mobile-hybrid", 1),
+                ("DA-04:mobile-hybrid:reject-footer", "mobile-hybrid", 1),
+            },
+        )
+        dashboard = self.client.get("/api/v1/dashboard/summary").json()["audits"][0]
+        findings = {item["ruleId"]: item for item in dashboard["findings"]}
+        self.assertEqual(set(findings), {"DA-04", "DA-12"})
+        self.assertEqual(findings["DA-04"]["element"], "Paid option")
+        self.assertEqual(findings["DA-12"]["severity"], "HIGH")
 
     def test_rejects_analysis_without_uploaded_screens(self) -> None:
         audit_id = self.client.post(

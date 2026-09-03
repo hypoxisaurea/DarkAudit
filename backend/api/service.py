@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import inspect
 import threading
 from pathlib import Path
 
@@ -17,7 +16,12 @@ from ai.pipeline.web_audit import URLCapturePipeline, select_analysis_artifacts
 from ai.providers import create_provider
 from ai.providers.computer_use import OpenAIComputerUseAgent
 from ai.rules.rule_loader import RuleLoader
-from ai.schemas.audit_schema import AuditScreen, LLMAuditOutput, LLMAuditRequest
+from ai.schemas.audit_schema import (
+    AuditScreen,
+    CandidateDecisionValue,
+    HybridAuditOutput,
+    LLMAuditRequest,
+)
 from backend.app.fingerprint import make as make_fingerprint
 from backend.app.models import (
     AuditRun,
@@ -188,15 +192,12 @@ def capture_and_analyze_url(
             )
             candidates = _candidate_payload(rule_findings, screens, selected)
             pipeline = BaselineAuditPipeline(create_provider())
-            analyze_parameters = inspect.signature(pipeline.analyze).parameters
-            analysis = (
-                pipeline.analyze(request, candidates)
-                if "candidates" in analyze_parameters
-                else pipeline.analyze(request)
-            )
+            analysis = pipeline.analyze(request, candidates)
             _update_job(job_id, progress=78)
 
-            _store_output(session, run, analysis, rule_findings, element_lookup)
+            _store_output(
+                session, run, analysis, rule_findings, element_lookup, candidates
+            )
             _apply_regression(session, run)
             session.commit()
         _update_job(job_id, status="completed", progress=100)
@@ -284,11 +285,6 @@ def _run_rule_engine(
     return score_rule_findings(drop_incomplete(merge_rule_detections(detections, rb), rb), rb)
 
 
-def _rule_finding_key(finding: ScoredFinding) -> tuple[str, tuple[int, ...]]:
-    indices = [finding.screen_index] if finding.screen_index is not None else finding.screen_indices
-    return (finding.rule_id, tuple(sorted(indices)))
-
-
 def _candidate_payload(
     findings: list[ScoredFinding],
     screens: list[Screen],
@@ -299,46 +295,42 @@ def _candidate_payload(
         screen.screen_index: artifact.screen_id
         for screen, artifact in zip(screens, artifacts, strict=True)
     }
-    elements = {
-        element["element_id"]: {
-            "element_id": element["element_id"],
-            "element_type": element.get("element_type"),
-            "text": element.get("text"),
-            "bbox": element.get("bbox"),
-            "state": element.get("state") or {},
-            "computed_style": element.get("computed_style") or {},
-        }
-        for artifact in artifacts
-        for element in getattr(artifact, "dom_elements", ())
-    }
-    return [
-        {
+    payload: list[dict] = []
+    candidate_ids: set[str] = set()
+    for finding in findings:
+        indices = [finding.screen_index] if finding.screen_index is not None else list(finding.screen_indices)
+        if not indices or indices[-1] not in screen_ids:
+            raise ValueError(f"Rule candidate {finding.rule_id} has no captured screen")
+        screen_index = indices[-1]
+        screen_id = screen_ids[screen_index]
+        anchor = finding.primary_id or "flow"
+        candidate_id = f"{finding.rule_id}:{screen_id}:{anchor}"
+        if candidate_id in candidate_ids:
+            raise ValueError(f"duplicate generated candidate_id: {candidate_id}")
+        candidate_ids.add(candidate_id)
+        payload.append({
+            "candidate_id": candidate_id,
             "rule_id": finding.rule_id,
-            "screen_ids": [screen_ids[index] for index in (
-                [finding.screen_index] if finding.screen_index is not None
-                else finding.screen_indices
-            ) if index in screen_ids],
+            "screen_id": screen_id,
+            "screen_index": screen_index,
             "primary_element_id": finding.primary_id,
             "related_element_ids": list(finding.related_ids),
-            "primary_element": elements.get(finding.primary_id),
-            "related_elements": [
-                elements[element_id]
-                for element_id in finding.related_ids
-                if element_id in elements
+            "triggered_checks": [
+                check if check.startswith(f"{finding.rule_id}.") else f"{finding.rule_id}.{check}"
+                for check in finding.triggered_checks
             ],
-            "triggered_checks": list(finding.triggered_checks),
             "measurements": finding.measurements,
-        }
-        for finding in findings
-    ]
+        })
+    return payload
 
 
 def _store_output(
     session,
     run: AuditRun,
-    output: LLMAuditOutput,
+    output: HybridAuditOutput,
     rule_findings: list[ScoredFinding] | None = None,
     element_lookup: dict[str, Element] | None = None,
+    candidates: list[dict] | None = None,
 ) -> None:
     ordered_screens = sorted(run.screens, key=lambda screen: screen.screen_index)
     if len(ordered_screens) != len(output.screens):
@@ -349,58 +341,99 @@ def _store_output(
     }
     rules = rules_by_id()
     element_lookup = element_lookup or {}
-    # LLM 이 검증하기 전에 Rule Engine 이 같은 rule_id·화면을 이미 찾았다면
-    # base_severity/severity 는 Rule Engine 값을 최종으로 쓴다 (rule_ai_contract.md).
-    # Match deterministic evidence to the model's verified findings. Unmatched
-    # candidates are deliberately not persisted as findings.
-    candidate_pool: dict[tuple[str, tuple[int, ...]], list[ScoredFinding]] = {}
-    for candidate in rule_findings or []:
-        candidate_pool.setdefault(_rule_finding_key(candidate), []).append(candidate)
+    # Candidate IDs are the only join key; Rule/screen inference is forbidden.
+    rule_findings = rule_findings or []
+    candidates = candidates or []
+    if len(rule_findings) != len(candidates):
+        raise ValueError("Rule findings and candidate payload counts do not match")
+    candidate_pool = {
+        payload["candidate_id"]: (payload, finding)
+        for payload, finding in zip(candidates, rule_findings, strict=True)
+    }
+    if len(candidate_pool) != len(candidates):
+        raise ValueError("candidate_id values must be unique")
 
-    verified = []
-    for detection in output.detections:
+    verified: list[dict] = []
+    for decision in output.candidate_decisions:
+        pair = candidate_pool.get(decision.candidate_id)
+        if pair is None:
+            raise ValueError(f"unknown candidate_id: {decision.candidate_id}")
+        if decision.decision is CandidateDecisionValue.REJECT:
+            continue
+        payload, matched = pair
+        indices = [matched.screen_index] if matched.screen_index is not None else list(matched.screen_indices)
+        verified.append({
+            "detection": None,
+            "decision": decision,
+            "referenced": [screens[payload["screen_id"]]],
+            "indices": indices,
+            "matched": matched,
+        })
+
+    for detection in output.semantic_findings:
         referenced = [screens[screen_id] for screen_id in detection.where.screen_ids]
         indices = [screen.screen_index for screen in referenced]
-        candidates = candidate_pool.get((detection.rule_id, tuple(sorted(indices)))) or []
-        matched = candidates.pop(0) if candidates else ScoredFinding(
+        matched = ScoredFinding(
             rule_id=detection.rule_id,
             label_unit=rules[detection.rule_id]["label_unit"],
             screen_index=indices[0] if len(indices) == 1 else None,
             primary_id=None,
             screen_indices=indices if len(indices) > 1 else [],
         )
-        verified.append((detection, referenced, indices, matched))
+        verified.append({
+            "detection": detection,
+            "decision": None,
+            "referenced": referenced,
+            "indices": indices,
+            "matched": matched,
+        })
 
-    score_rule_findings([item[3] for item in verified], RuleBase())
+    # Recompute final severity using only KEEP candidates and semantic findings.
+    for item in verified:
+        item["matched"].combination_with = []
+    score_rule_findings([item["matched"] for item in verified], RuleBase())
 
-    for detection, referenced, indices, matched in verified:
+    for item in verified:
+        detection = item["detection"]
+        decision = item["decision"]
+        referenced = item["referenced"]
+        indices = item["indices"]
+        matched = item["matched"]
         label_unit = matched.label_unit
 
-        primary = None
+        primary = element_lookup.get(matched.primary_id) if matched.primary_id else None
         if label_unit == "element":
-            primary = element_lookup.get(matched.primary_id) if matched.primary_id else None
-            if primary is None:
+            if primary is None and detection is not None:
+                x, y, width, height = detection.bbox
                 primary = Element(
                     screen=referenced[0],
                     element_type="vision",
                     text=detection.where.element,
-                    bbox_x=0.0,
-                    bbox_y=0.0,
-                    bbox_w=0.0,
-                    bbox_h=0.0,
+                    bbox_x=x,
+                    bbox_y=y,
+                    bbox_w=width,
+                    bbox_h=height,
                     source="vision",
                     confidence=detection.confidence,
                 )
                 session.add(primary)
                 session.flush()
 
+        rule = rules[matched.rule_id]
+        element_text = (
+            detection.where.element
+            if detection is not None
+            else (primary.text if primary is not None else matched.primary_id or matched.rule_id)
+        )
+        confidence = detection.confidence if detection is not None else decision.confidence
+
         finding = Finding(
-            rule_id=detection.rule_id,
+            rule_id=matched.rule_id,
             label_unit=label_unit,
             fingerprint=make_fingerprint(
-                detection.rule_id,
+                matched.rule_id,
                 screen_index=indices[0] if indices else None,
-                text=detection.where.element,
+                text=element_text,
                 label_unit=label_unit,
             ),
             primary_element=primary,
@@ -411,22 +444,38 @@ def _store_output(
             mitigated_by=list(matched.mitigated_by),
             mitigated=matched.mitigated,
             status=FindingStatus.OPEN,
-            confidence=detection.confidence,
+            confidence=confidence,
         )
         finding.evidence = Evidence(
-            where_text=detection.where.location,
-            what_text=detection.what,
-            observation=detection.observation,
-            rule_ref=detection.rule_id,
-            why_text=detection.why,
-            fix_text=detection.fix,
-    # LLM 은 놓쳤지만 Rule Engine 이 단독으로 찾은 결과도 그대로 남긴다.
+            where_text=detection.where.location if detection is not None else referenced[0].flow_step,
+            what_text=detection.what if detection is not None else element_text,
+            observation=detection.observation if detection is not None else decision.reason,
+            rule_ref=matched.rule_id,
+            why_text=detection.why if detection is not None else decision.reason,
+            fix_text=detection.fix if detection is not None else rule.get("fix_template", ""),
             triggered_checks=list(matched.triggered_checks),
             measurements=matched.measurements or None,
         )
         for related_id in matched.related_ids:
             related_element = element_lookup.get(related_id)
             if related_element is not None:
+                finding.related.append(FindingRelatedElement(element=related_element))
+        if detection is not None:
+            for related in detection.related_elements:
+                related_screen = screens[related.screen_id]
+                x, y, width, height = related.bbox
+                related_element = Element(
+                    screen=related_screen,
+                    element_type="vision",
+                    text=related.element,
+                    bbox_x=x,
+                    bbox_y=y,
+                    bbox_w=width,
+                    bbox_h=height,
+                    source="vision",
+                    confidence=detection.confidence,
+                )
+                session.add(related_element)
                 finding.related.append(FindingRelatedElement(element=related_element))
         run.findings.append(finding)
 
