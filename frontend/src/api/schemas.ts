@@ -2,6 +2,22 @@ import { z } from "zod";
 
 import { resolveApiUrl } from "@/api/client";
 
+export const bboxSchema = z.object({
+  screenId: z.string().min(1),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  coordinateSystem: z.enum(["image", "normalized"]),
+});
+
+export const elementRefSchema = z.object({
+  screenId: z.string().min(1),
+  description: z.string(),
+  bbox: bboxSchema.nullable().optional(),
+  elementType: z.string().nullable().optional(),
+});
+
 export const findingSchema = z.object({
   id: z.string().min(1),
   ruleId: z.enum(["DA-02", "DA-03", "DA-04", "DA-05", "DA-07", "DA-11", "DA-12", "DA-13", "DA-15"]),
@@ -28,6 +44,8 @@ export const findingSchema = z.object({
   recommendation: z.string(),
   guideline: z.string(),
   observation: z.string().nullable().optional(),
+  bbox: bboxSchema.nullable().optional(),
+  relatedElements: z.array(elementRefSchema).optional(),
   mitigated: z.boolean().optional(),
   combinationWith: z.array(z.string()).optional(),
   combinationRules: z.array(z.string()).optional(),

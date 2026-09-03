@@ -12,6 +12,22 @@ export type AuditScreenDto = {
   height?: number | null;
 };
 
+export type BBoxDto = {
+  screenId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  coordinateSystem: "image" | "normalized";
+};
+
+export type ElementRefDto = {
+  screenId: string;
+  description: string;
+  bbox?: BBoxDto | null;
+  elementType?: string | null;
+};
+
 export type FindingDto = {
   id: string;
   ruleId: "DA-02" | "DA-03" | "DA-04" | "DA-05" | "DA-07" | "DA-11" | "DA-12" | "DA-13" | "DA-15";
@@ -37,6 +53,8 @@ export type FindingDto = {
   recommendation: string;
   guideline: string;
   observation?: string | null;
+  bbox?: BBoxDto | null;
+  relatedElements?: ElementRefDto[];
   mitigated?: boolean;
   combinationWith?: string[];
   combinationRules?: string[];
