@@ -431,3 +431,8 @@ class HybridAuditOutput:
             "candidate_decisions": [asdict(decision) for decision in self.candidate_decisions],
             "semantic_findings": [asdict(finding) for finding in self.semantic_findings],
         }
+
+    @property
+    def detections(self) -> tuple[Detection, ...]:
+        """Temporary internal compatibility alias until backend hybrid merge lands."""
+        return self.semantic_findings

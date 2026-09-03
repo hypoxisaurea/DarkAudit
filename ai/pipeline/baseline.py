@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any
 from ai.providers.base import MultimodalProvider
 from ai.rules.rule_loader import RuleLoader
-from ai.schemas.audit_schema import LLMAuditOutput, LLMAuditRequest
-from .response_parser import parse_audit_response
+from ai.schemas.audit_schema import HybridAuditOutput, LLMAuditRequest, RuleCandidate
+from .response_parser import parse_hybrid_response
 
 MVP_RULE_IDS = frozenset({"DA-03", "DA-04", "DA-12", "DA-15"})
 
@@ -25,25 +25,42 @@ class BaselineAuditPipeline:
         self.last_run_telemetry: dict[str, Any] = {}
 
     def analyze(
-        self, request: LLMAuditRequest, candidates: list[dict[str, Any]] | None = None
-    ) -> LLMAuditOutput:
+        self, request: LLMAuditRequest,
+        candidates: list[dict[str, Any] | RuleCandidate] | None = None,
+    ) -> HybridAuditOutput:
+        parsed_candidates = [
+            item if isinstance(item, RuleCandidate) else RuleCandidate.from_dict(item)
+            for item in (candidates or [])
+        ]
+        candidate_payload = [
+            {
+                "candidate_id": item.candidate_id,
+                "rule_id": item.rule_id,
+                "screen_id": item.screen_id,
+                "screen_index": item.screen_index,
+                "primary_element_id": item.primary_element_id,
+                "triggered_checks": list(item.triggered_checks),
+                "measurements": item.measurements,
+                "related_element_ids": list(item.related_element_ids),
+            }
+            for item in parsed_candidates
+        ]
         arguments = {
             "request": request,
             "system_prompt": (self.prompts_dir / "system.md").read_text(encoding="utf-8"),
             "audit_prompt": (self.prompts_dir / "audit_v1.md").read_text(encoding="utf-8"),
             "rules": self.rule_loader.rules(rule_ids=MVP_RULE_IDS),
             "output_schema": json.loads(self.schema_path.read_text(encoding="utf-8")),
+            "candidates": candidate_payload,
         }
-        if candidates:
-            arguments["candidates"] = candidates
         last_error: ValueError | None = None
         started = time.perf_counter()
         for attempt in range(1, self.max_attempts + 1):
             try:
                 raw = self.provider.analyze(**arguments)
                 self._deduplicate_raw(raw)
-                output = parse_audit_response(raw, request)
-                result = self._filter_and_deduplicate(output, candidates or [])
+                output = parse_hybrid_response(raw, request, parsed_candidates)
+                result = self._filter_and_deduplicate(output)
                 self.last_run_telemetry = {
                     "response_time_seconds": time.perf_counter() - started,
                     "screen_count": len(request.screens),
@@ -66,7 +83,7 @@ class BaselineAuditPipeline:
     @staticmethod
     def _deduplicate_raw(raw: dict[str, Any]) -> None:
         """Collapse provider duplicates before strict cross-record validation."""
-        detections = raw.get("detections")
+        detections = raw.get("semantic_findings")
         if not isinstance(detections, list):
             return
         kept: dict[tuple, dict[str, Any]] = {}
@@ -83,32 +100,21 @@ class BaselineAuditPipeline:
                     kept[key] = item
             except (KeyError, TypeError, ValueError):
                 passthrough.append(item)
-        raw["detections"] = [*kept.values(), *passthrough]
+        raw["semantic_findings"] = [*kept.values(), *passthrough]
 
     @staticmethod
-    def _filter_and_deduplicate(
-        output: LLMAuditOutput, candidates: list[dict[str, Any]]
-    ) -> LLMAuditOutput:
-        """Drop weak/unsupported model claims and collapse duplicate findings.
-
-        A deterministic signal permits REVIEW-level confidence (0.50). A finding
-        discovered by semantics alone needs stronger model confidence (0.70).
-        Structural evidence requirements are enforced by ``Detection`` itself.
-        """
-        candidate_keys = {
-            (item.get("rule_id"), tuple(sorted(item.get("screen_ids") or [])))
-            for item in candidates
-        }
+    def _filter_and_deduplicate(output: HybridAuditOutput) -> HybridAuditOutput:
+        """Drop weak semantic-only claims and collapse duplicate findings."""
         kept = {}
-        for finding in output.detections:
+        for finding in output.semantic_findings:
             key = (finding.rule_id, tuple(sorted(finding.where.screen_ids)))
-            threshold = 0.50 if key in candidate_keys else 0.70
-            if finding.confidence < threshold:
+            if finding.confidence < 0.70:
                 continue
             duplicate_key = (key, finding.where.element.strip().casefold(), finding.bbox)
             previous = kept.get(duplicate_key)
             if previous is None or finding.confidence > previous.confidence:
                 kept[duplicate_key] = finding
-        return LLMAuditOutput(
-            output.audit_id, output.schema_version, output.screens, tuple(kept.values())
+        return HybridAuditOutput(
+            output.audit_id, output.schema_version, output.screens,
+            output.candidate_decisions, tuple(kept.values()), output.candidates,
         )

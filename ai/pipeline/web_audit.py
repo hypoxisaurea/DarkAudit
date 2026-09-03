@@ -8,7 +8,7 @@ from typing import Any
 from ai.browser.explorer import HybridWebExplorer
 from ai.browser.models import CaptureArtifact, CaptureResult, ScanMode
 from ai.browser.profiles import get_device_profile
-from ai.schemas.audit_schema import AuditScreen, LLMAuditOutput, LLMAuditRequest
+from ai.schemas.audit_schema import AuditScreen, HybridAuditOutput, LLMAuditRequest
 
 from .baseline import BaselineAuditPipeline
 
@@ -36,7 +36,7 @@ class URLCaptureResult:
 @dataclass(frozen=True, slots=True)
 class URLAuditResult:
     capture: URLCaptureResult
-    analysis: LLMAuditOutput
+    analysis: HybridAuditOutput
     telemetry: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
