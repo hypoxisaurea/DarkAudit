@@ -29,8 +29,8 @@ export type FindingDto = {
   description: string;
   screenIds: string[];
   element: string;
-  defaultState?: string;
-  costImpact?: string;
+  defaultState?: string | null;
+  costImpact?: string | null;
   severity: FindingSeverity;
   status: FindingStatus;
   confidence: number;

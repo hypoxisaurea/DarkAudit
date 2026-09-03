@@ -46,7 +46,11 @@ app.add_middleware(
     allow_origins=[origin.strip() for origin in os.getenv(
         "DARKAUDIT_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",")],
-    allow_origin_regex=r"^http://(?:localhost|127\.0\.0\.1):\d+$",
+    # 로컬 개발용 localhost 외에, Vercel의 preview/anonymous 배포마다 서브도메인이
+    # 매번 바뀌므로(temporary-*.vercel.app) 그때마다 DARKAUDIT_CORS_ORIGINS 를
+    # 갱신하지 않아도 되도록 *.vercel.app 전체를 허용한다. allow_credentials=False
+    # 라 쿠키/세션 위험은 없다.
+    allow_origin_regex=r"^http://(?:localhost|127\.0\.0\.1):\d+$|^https://[a-z0-9-]+\.vercel\.app$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
