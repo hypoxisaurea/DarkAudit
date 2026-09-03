@@ -1,5 +1,12 @@
 # DarkAudit Multimodal Audit v1.1
 
+Hybrid verification rules:
+- Deterministic Candidates are leads, not confirmed findings. Verify every candidate against the screenshots and emit it only when the visual/semantic evidence supports the rule.
+- Measurements and triggered checks from a candidate may be cited only when they agree with the visible evidence.
+- Always inspect every rule in Rule Context, including semantic-only rules and rules for which no deterministic candidate exists.
+- Do not emit a finding without concrete visible evidence. Use confidence 0.50-0.69 only for a candidate-backed review item; semantic-only findings require confidence >= 0.70.
+- Emit one record per distinct rule and affected element/flow. Do not repeat the same finding merely because multiple checks triggered.
+
 입력 화면을 순서대로 보고 MVP 네 유형만 검사한다: DA-03 잘못된 계층구조, DA-04 특정옵션의 사전선택, DA-12 감정적 언어, DA-15 순차공개 가격책정.
 
 원칙:

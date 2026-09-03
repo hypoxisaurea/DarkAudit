@@ -67,11 +67,24 @@ def da15(screen_ids):
 
 class FakeProvider:
     def __init__(self, result):
-        self.result, self.rules = result, None
+        self.result, self.rules, self.candidates = result, None, None
 
-    def analyze(self, request, system_prompt, audit_prompt, rules, output_schema):
+    def analyze(self, request, system_prompt, audit_prompt, rules, output_schema, candidates=None):
         self.rules = rules
+        self.candidates = candidates
         return self.result
+
+
+class RetryProvider(FakeProvider):
+    def __init__(self, result):
+        super().__init__(result)
+        self.calls = 0
+
+    def analyze(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return {"invalid": True}
+        return super().analyze(*args, **kwargs)
 
 
 class AuditSchemaTest(unittest.TestCase):
@@ -145,6 +158,50 @@ class AuditSchemaTest(unittest.TestCase):
             result = BaselineAuditPipeline(provider).analyze(request)
             self.assertEqual(result.audit_id, "audit_1")
             self.assertEqual({rule["rule_id"] for rule in provider.rules}, {"DA-03", "DA-04", "DA-12", "DA-15"})
+
+    def test_candidate_backed_review_uses_lower_confidence_threshold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "screen.png"
+            image.write_bytes(b"png")
+            request = LLMAuditRequest("audit_1", (AuditScreen("screen_01", "desktop: offer", image),))
+            item = detection()
+            item["confidence"] = 0.55
+            provider = FakeProvider(output([item], [{"screen_id": "screen_01", "flow_step": "desktop: offer"}]))
+            result = BaselineAuditPipeline(provider).analyze(request, [{
+                "rule_id": "DA-12", "screen_ids": ["screen_01"],
+                "triggered_checks": ["emotional_phrase"], "measurements": {"matches": 1},
+            }])
+            self.assertEqual(len(result.detections), 1)
+            self.assertEqual(provider.candidates[0]["measurements"], {"matches": 1})
+
+    def test_weak_semantic_only_and_duplicate_findings_are_filtered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "screen.png"
+            image.write_bytes(b"png")
+            request = LLMAuditRequest("audit_1", (AuditScreen("screen_01", "desktop: offer", image),))
+            weak = detection()
+            weak["confidence"] = 0.69
+            strong = detection()
+            strong["confidence"] = 0.91
+            provider = FakeProvider(output(
+                [weak, strong, copy.deepcopy(strong)],
+                [{"screen_id": "screen_01", "flow_step": "desktop: offer"}],
+            ))
+            result = BaselineAuditPipeline(provider).analyze(request)
+            self.assertEqual(len(result.detections), 1)
+            self.assertEqual(result.detections[0].confidence, 0.91)
+
+    def test_records_schema_retry_and_latency_telemetry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "screen.png"
+            image.write_bytes(b"png")
+            request = LLMAuditRequest("audit_1", (AuditScreen("screen_01", "desktop: offer", image),))
+            provider = RetryProvider(output([], [{"screen_id": "screen_01", "flow_step": "desktop: offer"}]))
+            pipeline = BaselineAuditPipeline(provider)
+            pipeline.analyze(request)
+            self.assertEqual(pipeline.last_run_telemetry["schema_attempts"], 2)
+            self.assertEqual(pipeline.last_run_telemetry["schema_retries"], 1)
+            self.assertGreaterEqual(pipeline.last_run_telemetry["response_time_seconds"], 0)
 
 
 if __name__ == "__main__":

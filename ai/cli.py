@@ -10,8 +10,9 @@ from ai.browser.models import ScanMode
 from ai.browser.playwright_driver import PlaywrightSessionFactory
 from ai.browser.profiles import device_profile_names
 from ai.browser.safety import UrlSafetyPolicy
-from ai.pipeline.baseline import BaselineAuditPipeline
+from ai.pipeline.baseline import MVP_RULE_IDS, BaselineAuditPipeline
 from ai.pipeline.web_audit import URLAuditPipeline, URLCapturePipeline
+from ai.evaluation import Evaluator, report_json
 from ai.providers.computer_use import OpenAIComputerUseAgent
 from ai.providers.openai_provider import OpenAIResponsesProvider
 from ai.schemas.audit_schema import AuditScreen, LLMAuditRequest
@@ -32,6 +33,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit_url = sub.add_parser("audit-url", help="Capture a URL and run the DarkAudit model")
     _add_url_arguments(audit_url, include_audit_model=True)
+    evaluate = sub.add_parser("evaluate", help="Evaluate prediction JSON against dataset labels")
+    evaluate.add_argument("--dataset", type=Path, default=Path("data/synthetic/labels"))
+    evaluate.add_argument("--predictions", type=Path, required=True)
+    evaluate.add_argument("--iou-threshold", type=float, default=0.5)
+    evaluate.add_argument("--input-usd-per-million", type=float)
+    evaluate.add_argument("--output-usd-per-million", type=float)
+    evaluate.add_argument("--rule-id", action="append", choices=sorted(MVP_RULE_IDS),
+                          help="Rule scope; defaults to the current MVP rules")
     return parser
 
 
@@ -55,6 +64,18 @@ def main(argv: list[str] | None = None) -> int:
         return _run_image_audit(args)
     if args.command in {"capture-url", "audit-url"}:
         return _run_url_command(args)
+    if args.command == "evaluate":
+        evaluator = Evaluator()
+        report = evaluator.evaluate_dataset(
+            evaluator.load_dataset(args.dataset),
+            evaluator.load_predictions(args.predictions),
+            iou_threshold=args.iou_threshold,
+            input_usd_per_million=args.input_usd_per_million,
+            output_usd_per_million=args.output_usd_per_million,
+            rule_ids=set(args.rule_id or MVP_RULE_IDS),
+        )
+        print(report_json(report))
+        return 0
     raise SystemExit(f"Unsupported command: {args.command}")
 
 

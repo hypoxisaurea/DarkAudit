@@ -45,6 +45,7 @@ class OpenAIResponsesProvider:
             client = OpenAI()
         self.client = client
         self.model = model
+        self.last_usage: dict[str, int] | None = None
 
     @staticmethod
     def _data_url(path: Any) -> str:
@@ -53,7 +54,8 @@ class OpenAIResponsesProvider:
         return f"data:{mime};base64,{encoded}"
 
     def analyze(self, request: LLMAuditRequest, system_prompt: str, audit_prompt: str,
-                rules: list[dict[str, Any]], output_schema: dict[str, Any]) -> dict[str, Any]:
+                rules: list[dict[str, Any]], output_schema: dict[str, Any],
+                candidates: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         content: list[dict[str, Any]] = [
             {"type": "input_text", "text": audit_prompt},
             {
@@ -68,12 +70,24 @@ class OpenAIResponsesProvider:
             content.append({"type": "input_text", "text": f"screen_id={screen.screen_id}; flow_step={screen.flow_step}"})
             content.append({"type": "input_image", "image_url": self._data_url(screen.image_path), "detail": "high"})
         content.append({"type": "input_text", "text": "Rule Context:\n" + json.dumps(rules, ensure_ascii=False)})
+        content.append({
+            "type": "input_text",
+            "text": "Deterministic Candidates (signals, not conclusions):\n" + json.dumps(
+                candidates or [], ensure_ascii=False
+            ),
+        })
         response = self.client.responses.create(
             model=self.model,
             instructions=system_prompt,
             input=[{"role": "user", "content": content}],
             text={"format": {"type": "json_schema", "name": "darkaudit_output", "schema": _responses_schema(output_schema), "strict": True}},
         )
+        usage = getattr(response, "usage", None)
+        self.last_usage = None if usage is None else {
+            "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+            "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+            "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
+        }
         if not getattr(response, "output_text", None):
             raise RuntimeError("Model returned no output_text")
         return json.loads(response.output_text)

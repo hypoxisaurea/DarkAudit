@@ -37,9 +37,13 @@ class URLCaptureResult:
 class URLAuditResult:
     capture: URLCaptureResult
     analysis: LLMAuditOutput
+    telemetry: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"capture": self.capture.to_dict(), "analysis": self.analysis.to_dict()}
+        result = {"capture": self.capture.to_dict(), "analysis": self.analysis.to_dict()}
+        if self.telemetry is not None:
+            result["telemetry"] = self.telemetry
+        return result
 
 
 class URLCapturePipeline:
@@ -108,7 +112,10 @@ class URLAuditPipeline:
                 for artifact in selected
             ),
         )
-        return URLAuditResult(capture, self.audit_pipeline.analyze(request))
+        analysis = self.audit_pipeline.analyze(request)
+        telemetry = dict(self.audit_pipeline.last_run_telemetry)
+        telemetry["url_exploration_success"] = bool(capture.artifacts)
+        return URLAuditResult(capture, analysis, telemetry)
 
 
 def select_analysis_artifacts(

@@ -24,6 +24,42 @@ python -m unittest discover -s ai/tests -v
 
 Unit tests use a fake provider and do not require an API key.
 
+## Evaluate the labelled dataset
+
+The evaluator reads all label files in `data/synthetic/labels` (currently 22
+clean/risky flows) and prediction JSON files from a directory:
+
+```powershell
+.venv\Scripts\python.exe -m ai.cli evaluate `
+  --predictions data/evaluation/predictions `
+  --input-usd-per-million 1.25 `
+  --output-usd-per-million 10.00
+```
+
+Each prediction can be a raw audit output or an envelope. The envelope enables
+latency, URL exploration, model cost, and schema retry metrics:
+
+```json
+{
+  "flow_id": "ins-001-risky",
+  "output": {"audit_id": "ins-001-risky", "screens": [], "detections": []},
+  "telemetry": {
+    "response_time_seconds": 2.4,
+    "screen_count": 5,
+    "url_exploration_success": true,
+    "schema_attempts": 2,
+    "schema_retries": 1,
+    "usage": {"input_tokens": 1200, "output_tokens": 300}
+  }
+}
+```
+
+The report contains per-rule Precision/Recall/F1, Micro/Macro F1,
+clean/risky counterfactual consistency, mean bbox IoU and localization success
+at the configured threshold, URL exploration success, average response time,
+cost per screen, and schema retry rate. Missing predictions are listed and are
+excluded from metric denominators.
+
 Copy `.env.example` to `.env`, then fill in the local values. Never commit `.env`.
 
 ## Audit a website URL

@@ -38,12 +38,16 @@ class OpenAIProviderTest(unittest.TestCase):
             responses = FakeResponses()
             client = SimpleNamespace(responses=responses)
             request = LLMAuditRequest("audit", (AuditScreen("screen_01", "가입", image),))
-            result = OpenAIResponsesProvider("test-model", client).analyze(request, "system", "audit", [], {"type": "object"})
+            result = OpenAIResponsesProvider("test-model", client).analyze(
+                request, "system", "audit", [], {"type": "object"},
+                [{"rule_id": "DA-04", "measurements": {"checked": True}}],
+            )
             self.assertEqual(result, {"ok": True})
             self.assertEqual(responses.kwargs["model"], "test-model")
             content = responses.kwargs["input"][0]["content"]
             self.assertTrue(any(item["type"] == "input_image" and item["image_url"].startswith("data:image/png;base64,") for item in content))
             self.assertTrue(any("audit_id=audit" in item.get("text", "") for item in content))
+            self.assertTrue(any('"checked": true' in item.get("text", "") for item in content))
             self.assertTrue(responses.kwargs["text"]["format"]["strict"])
 
 
