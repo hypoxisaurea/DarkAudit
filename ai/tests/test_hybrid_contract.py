@@ -12,23 +12,29 @@ from ai.schemas.audit_schema import (
 )
 
 
-def candidate(candidate_id="DA-04:screen-01:btn-1", rule_id="DA-04"):
+def candidate(
+    candidate_id="DA-04:screen-01:btn-1", rule_id="DA-04", primary_element_id="btn-1"
+):
     return RuleCandidate(
         candidate_id=candidate_id,
         rule_id=rule_id,
         screen_id="screen-01",
         screen_index=1,
-        primary_element_id="btn-1",
+        primary_element_id=primary_element_id,
         triggered_checks=(f"{rule_id}.default_checked",),
         measurements={"checked": True},
         related_element_ids=(),
     )
 
 
-def decision(candidate_id="DA-04:screen-01:btn-1", severity=Severity.HIGH):
+def decision(
+    candidate_id="DA-04:screen-01:btn-1",
+    severity=Severity.HIGH,
+    value="KEEP",
+):
     return {
         "candidate_id": candidate_id,
-        "decision": "KEEP",
+        "decision": value,
         "reason": "선택 가능한 옵션이 초기 상태에서 선택되어 있음",
         "confidence": 0.91,
         "base_severity": severity.value,
@@ -67,6 +73,35 @@ class HybridContractTest(unittest.TestCase):
         parsed = HybridAuditOutput.from_dict(output([decision()]), [candidate()])
         self.assertEqual(parsed.candidate_decisions[0].decision, CandidateDecisionValue.KEEP)
         self.assertNotIn("candidates", parsed.to_dict())
+
+    def test_accepts_reject_decision(self):
+        parsed = HybridAuditOutput.from_dict(
+            output([decision(value="REJECT")]),
+            [candidate()],
+        )
+        self.assertEqual(parsed.candidate_decisions[0].decision, CandidateDecisionValue.REJECT)
+
+    def test_accepts_multiple_candidates_for_same_rule_and_screen(self):
+        first_id = "DA-04:screen-01:btn-1"
+        second_id = "DA-04:screen-01:btn-2"
+        parsed = HybridAuditOutput.from_dict(
+            output([
+                decision(first_id, value="KEEP"),
+                decision(second_id, value="REJECT"),
+            ]),
+            [
+                candidate(first_id, primary_element_id="btn-1"),
+                candidate(second_id, primary_element_id="btn-2"),
+            ],
+        )
+        self.assertEqual(
+            [item.candidate_id for item in parsed.candidate_decisions],
+            [first_id, second_id],
+        )
+        self.assertEqual(
+            [item.decision for item in parsed.candidate_decisions],
+            [CandidateDecisionValue.KEEP, CandidateDecisionValue.REJECT],
+        )
 
     def test_rejects_duplicate_candidate_ids(self):
         with self.assertRaisesRegex(ValueError, "candidate_id values must be unique"):
