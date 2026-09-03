@@ -156,7 +156,8 @@ class ApiIntegrationTest(unittest.TestCase):
 
         with (
             patch("backend.api.main.UrlSafetyPolicy.validate", return_value="https://example.com"),
-            patch("backend.api.service.URLAuditPipeline.run", return_value=result),
+            patch("backend.api.service.URLCapturePipeline.run", return_value=result.capture),
+            patch("backend.api.service.BaselineAuditPipeline.analyze", return_value=result.analysis),
         ):
             queued = self.client.post(
                 f"/api/v1/audits/{audit_id}/capture",
