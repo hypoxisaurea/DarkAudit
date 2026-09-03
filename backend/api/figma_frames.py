@@ -1,0 +1,88 @@
+"""Figma 파일 트리에서 분석 대상 프레임을 고른다 (docs/figma_fastapi_handoff.md 6절).
+
+get_file() 응답의 ``document`` 서브트리만 입력으로 받는다. Figma API 응답
+바깥의 HTTP/인증 관심사는 figma_client.py 가 맡는다.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from .figma_client import FigmaFrame
+
+_CANDIDATE_TYPES = {"FRAME", "COMPONENT", "INSTANCE", "SECTION"}
+_MOBILE_WIDTH_RANGE = (280, 600)
+_NAME_PREFIX_RE = re.compile(r"^(\d+)[_\-.\s]")
+
+
+def find_node(document: dict[str, Any], node_id: str) -> tuple[dict[str, Any], int] | None:
+    """document 트리 전체에서 node_id 를 찾아 (node, page_index) 를 돌려준다."""
+    for page_index, page in enumerate(document.get("children") or []):
+        stack = [page]
+        while stack:
+            node = stack.pop()
+            if node.get("id") == node_id:
+                return node, page_index
+            stack.extend(node.get("children") or [])
+    return None
+
+
+def frame_from_node(node: dict[str, Any], page_index: int) -> FigmaFrame | None:
+    """규칙 3: visible != false, width/height > 0 인 노드만 허용한다."""
+    if node.get("visible") is False:
+        return None
+    box = node.get("absoluteBoundingBox") or {}
+    width, height = box.get("width") or 0, box.get("height") or 0
+    if width <= 0 or height <= 0:
+        return None
+    return FigmaFrame(
+        node_id=node["id"],
+        name=node.get("name") or "",
+        width=round(width),
+        height=round(height),
+        page_index=page_index,
+        x=box.get("x", 0.0),
+        y=box.get("y", 0.0),
+    )
+
+
+def collect_candidate_frames(document: dict[str, Any]) -> list[FigmaFrame]:
+    """규칙 2: 모든 Page 의 직접 자식 중 FRAME/COMPONENT/INSTANCE/SECTION 만 모은다."""
+    frames: list[FigmaFrame] = []
+    for page_index, page in enumerate(document.get("children") or []):
+        for child in page.get("children") or []:
+            if child.get("type") not in _CANDIDATE_TYPES:
+                continue
+            frame = frame_from_node(child, page_index)
+            if frame is not None:
+                frames.append(frame)
+    return frames
+
+
+def _name_prefix(name: str) -> int | None:
+    match = _NAME_PREFIX_RE.match(name)
+    return int(match.group(1)) if match else None
+
+
+def select_frames(frames: list[FigmaFrame], *, target: str, max_frames: int) -> list[FigmaFrame]:
+    """규칙 4-6: 모바일 폭 우선 -> 이름 숫자 prefix 또는 캔버스 순서 -> 최대 개수."""
+    candidates = list(frames)
+
+    if target == "mobile-web":
+        narrow = [
+            frame
+            for frame in candidates
+            if _MOBILE_WIDTH_RANGE[0] <= frame.width <= _MOBILE_WIDTH_RANGE[1]
+            and frame.height > frame.width
+        ]
+        if narrow:
+            candidates = narrow
+
+    prefixed = [(frame, _name_prefix(frame.name)) for frame in candidates]
+    if prefixed and all(prefix is not None for _, prefix in prefixed):
+        ordered = [frame for frame, _ in sorted(prefixed, key=lambda item: item[1])]
+    else:
+        ordered = sorted(candidates, key=lambda frame: (frame.page_index, frame.y, frame.x))
+
+    return ordered[:max_frames]

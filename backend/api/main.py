@@ -14,12 +14,15 @@ from ai.browser.models import ScanMode
 from ai.browser.safety import UnsafeUrlError, UrlSafetyPolicy
 from backend.app.models import Audit, Finding, FindingStatus, FlowType, RunStatus, Screen
 
+from .figma_client import InvalidFigmaUrlError, parse_figma_url
+from .figma_import import import_and_analyze_figma
 from .schemas import (
     AuditDto,
     CaptureAuditRequest,
     CreateAuditRequest,
     DashboardSummaryDto,
     FindingStatusRequest,
+    ImportFigmaRequest,
     JobDto,
 )
 from .service import (
@@ -161,6 +164,31 @@ def capture(audit_id: str, payload: CaptureAuditRequest, background: BackgroundT
             capture_and_analyze_url, job.jobId, run.id,
             audit_id=audit_id, url=str(payload.url), profiles=tuple(payload.profiles),
             mode=ScanMode(payload.mode), goal=payload.goal,
+        )
+        return job
+
+
+@app.post("/api/v1/audits/{audit_id}/figma", response_model=JobDto, status_code=202)
+def import_figma(audit_id: str, payload: ImportFigmaRequest, background: BackgroundTasks) -> JobDto:
+    # MVP 범위: prototype-flow 해석은 아직 구현하지 않는다(docs 14절).
+    # 조용히 all-frames 로 대체하면 사용자가 다른 화면 집합을 진단하게 되므로 명시적으로 거부한다.
+    if payload.selectionMode == "prototype-flow":
+        raise HTTPException(422, "prototype-flow는 아직 지원하지 않습니다. all-frames를 사용해주세요.")
+    try:
+        parse_figma_url(str(payload.fileUrl))
+    except InvalidFigmaUrlError:
+        raise HTTPException(400, "유효한 Figma design 링크가 아닙니다.")
+
+    with SessionLocal() as session:
+        try:
+            audit = get_audit(session, audit_id)
+        except KeyError:
+            raise HTTPException(404, "Audit not found")
+        run = next_run(session, audit.id, f"Figma: {payload.fileUrl}")
+        session.commit()
+        job = create_job(audit_id, run.id)
+        background.add_task(
+            import_and_analyze_figma, job.jobId, run.id, audit_id=audit_id, request=payload
         )
         return job
 
