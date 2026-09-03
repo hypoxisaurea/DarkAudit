@@ -152,6 +152,13 @@ class JobDto(BaseModel):
     error: str | None = None
 
 
+class ImportFigmaRequest(BaseModel):
+    fileUrl: HttpUrl
+    target: Literal["mobile-web", "desktop-web", "app"]
+    selectionMode: Literal["prototype-flow", "all-frames"]
+    flowName: str | None = Field(default=None, max_length=200)
+
+
 class CaptureAuditRequest(BaseModel):
     url: HttpUrl
     mode: Literal["quick", "smart"] = "quick"

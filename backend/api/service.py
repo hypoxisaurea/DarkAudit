@@ -48,6 +48,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 CAPTURE_DIR = DATA_DIR / "captures"
+FIGMA_DIR = DATA_DIR / "figma"
 
 _jobs: dict[str, JobDto] = {}
 _jobs_lock = threading.Lock()
@@ -104,25 +105,34 @@ def public_image_path(path: Path) -> str:
 def analyze_uploaded_screens(job_id: str, run_id: int, local_paths: list[Path]) -> None:
     try:
         _mark_running(job_id, run_id, 20)
-        with SessionLocal() as session:
-            run = session.get(AuditRun, run_id)
-            if run is None:
-                raise ValueError("Analysis run no longer exists")
-            request = LLMAuditRequest(
-                f"audit-{run.audit_id}",
-                tuple(
-                    AuditScreen(f"screen-{screen.screen_index:02d}", screen.flow_step or f"화면 {screen.screen_index}", path)
-                    for screen, path in zip(run.screens, local_paths, strict=True)
-                ),
-            )
-            output = BaselineAuditPipeline(create_provider()).analyze(request)
-            _update_job(job_id, progress=80)
-            _store_output(session, run, output)
-            _apply_regression(session, run)
-            session.commit()
-        _update_job(job_id, status="completed", progress=100)
+        analyze_run_screens(job_id, run_id, local_paths)
     except Exception as exc:  # background jobs must expose failures to the polling client
         _fail_job(job_id, run_id, exc)
+
+
+def analyze_run_screens(job_id: str, run_id: int, local_paths: list[Path]) -> None:
+    """LLM 분석 + DB 저장. 업로드/Figma 등 모든 수집기가 이 함수를 공유한다.
+
+    수집기별로 진행률 갱신(_mark_running)을 먼저 마친 뒤 호출해야 하며,
+    예외 처리는 호출부 책임이다(각 수집기가 자기 맥락으로 _fail_job 을 부른다).
+    """
+    with SessionLocal() as session:
+        run = session.get(AuditRun, run_id)
+        if run is None:
+            raise ValueError("Analysis run no longer exists")
+        request = LLMAuditRequest(
+            f"audit-{run.audit_id}",
+            tuple(
+                AuditScreen(f"screen-{screen.screen_index:02d}", screen.flow_step or f"화면 {screen.screen_index}", path)
+                for screen, path in zip(run.screens, local_paths, strict=True)
+            ),
+        )
+        output = BaselineAuditPipeline(create_provider()).analyze(request)
+        _update_job(job_id, progress=80)
+        _store_output(session, run, output)
+        _apply_regression(session, run)
+        session.commit()
+    _update_job(job_id, status="completed", progress=100)
 
 
 def capture_and_analyze_url(

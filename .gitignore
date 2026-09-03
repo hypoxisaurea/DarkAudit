@@ -19,6 +19,7 @@ rules/dark_pattern_rules.json
 data/synthetic/screenshots/
 data/uploads/
 data/captures/
+data/figma/
 *.db
 *.sqlite3
 
