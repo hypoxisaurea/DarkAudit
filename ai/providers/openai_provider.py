@@ -72,8 +72,13 @@ class OpenAIResponsesProvider:
         content.append({"type": "input_text", "text": "Rule Context:\n" + json.dumps(rules, ensure_ascii=False)})
         content.append({
             "type": "input_text",
-            "text": "Deterministic Candidates (signals, not conclusions):\n" + json.dumps(
-                candidates or [], ensure_ascii=False
+            "text": (
+                "Deterministic Candidates (signals, not conclusions):\n"
+                + json.dumps(candidates or [], ensure_ascii=False)
+                + "\nContract: Return exactly one KEEP or REJECT candidate_decision for every "
+                  "candidate_id above. Never copy a candidate into semantic_findings. "
+                  "Create semantic_findings only for the prompt's semantic-only checks. "
+                  "Do not calculate final severity; preserve Rule Base severity."
             ),
         })
         response = self.client.responses.create(

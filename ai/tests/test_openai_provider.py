@@ -48,6 +48,14 @@ class OpenAIProviderTest(unittest.TestCase):
             self.assertTrue(any(item["type"] == "input_image" and item["image_url"].startswith("data:image/png;base64,") for item in content))
             self.assertTrue(any("audit_id=audit" in item.get("text", "") for item in content))
             self.assertTrue(any('"checked": true' in item.get("text", "") for item in content))
+            candidate_text = next(
+                item["text"] for item in content
+                if item.get("text", "").startswith("Deterministic Candidates")
+            )
+            self.assertIn("exactly one KEEP or REJECT", candidate_text)
+            self.assertIn("Never copy a candidate into semantic_findings", candidate_text)
+            self.assertIn("semantic-only checks", candidate_text)
+            self.assertIn("Do not calculate final severity", candidate_text)
             self.assertTrue(responses.kwargs["text"]["format"]["strict"])
 
 
