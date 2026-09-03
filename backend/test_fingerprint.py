@@ -22,7 +22,7 @@ Counterfactual Pair 로만 검증하면 clean 쪽에 Finding 이 0건이라
 
 from __future__ import annotations
 
-from app.fingerprint import make, normalize_text
+from backend.app.fingerprint import make, normalize_text
 
 BASE = dict(
     rule_id="DA-04",
