@@ -1,0 +1,16 @@
+.git
+.env
+.env.local
+frontend/
+data/synthetic/
+data/generator/
+data/uploads/
+data/captures/
+data/figma/
+data/darkaudit.db
+docs/
+*.md
+__pycache__/
+*.pyc
+.pytest_cache/
+.claude/

@@ -24,10 +24,12 @@ from backend.app.models import (
     Audit, AuditRun, Base, Element, Evidence, Finding,
     FindingRelatedElement, RunStatus, Screen, Severity,
 )
+from backend.app.regression import RegressionReport
 
 from . import compat
 from .schemas import (
-    AuditDto, AuditRunDto, BBox, ElementRef, FindingDto, ScreenDto,
+    AuditDto, AuditRunDto, BBox, ElementRef, FindingDto, RegressionChangeDto,
+    RegressionDto, ScreenDto,
 )
 
 DB_URL = os.getenv("DARKAUDIT_DB_URL", "sqlite:///data/darkaudit.db")
@@ -225,6 +227,43 @@ def to_audit_dto(session: Session, audit: Audit, rules: dict) -> AuditDto:
         findings=findings,
         runs=run_dtos,
         latestRunId=f"run-{run.id}" if run else None,
+    )
+
+
+def to_regression_dto(session: Session, report: RegressionReport) -> RegressionDto:
+    """RegressionReport(계산 결과) → API 응답.
+
+    findingId 는 실제로 조회 가능한 Finding 행을 가리켜야 하므로, resolved 는
+    from run(더 이상 없는 쪽)에서, 나머지는 to run(현재 상태)에서 찾는다.
+    """
+    from_run = session.scalar(
+        select(AuditRun).where(AuditRun.audit_id == report.audit_id, AuditRun.version == report.from_version)
+    )
+    to_run = session.scalar(
+        select(AuditRun).where(AuditRun.audit_id == report.audit_id, AuditRun.version == report.to_version)
+    )
+    from_id_by_fp = {f.fingerprint: f.id for f in (from_run.findings if from_run else [])}
+    to_id_by_fp = {f.fingerprint: f.id for f in (to_run.findings if to_run else [])}
+
+    def change_dto(change, id_by_fp: dict[str, int]) -> RegressionChangeDto:
+        finding_id = id_by_fp.get(change.fingerprint)
+        return RegressionChangeDto(
+            ruleId=change.rule_id,
+            findingId=f"finding-{finding_id}" if finding_id is not None else None,
+            before=change.before.value if change.before else None,
+            after=change.after.value if change.after else None,
+        )
+
+    return RegressionDto(
+        auditId=f"audit-{report.audit_id}",
+        fromVersion=report.from_version,
+        toVersion=report.to_version,
+        resolved=[change_dto(c, from_id_by_fp) for c in report.resolved],
+        improved=[change_dto(c, to_id_by_fp) for c in report.improved],
+        persisted=[change_dto(c, to_id_by_fp) for c in report.persisted],
+        new=[change_dto(c, to_id_by_fp) for c in report.new],
+        regressed=[change_dto(c, to_id_by_fp) for c in report.regressed],
+        resolvedRatio=round(report.resolved_ratio, 3),
     )
 
 

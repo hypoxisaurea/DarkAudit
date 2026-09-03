@@ -6,13 +6,14 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile, status
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from ai.browser.models import ScanMode
 from ai.browser.safety import UnsafeUrlError, UrlSafetyPolicy
 from backend.app.models import Audit, Finding, FindingStatus, FlowType, RunStatus, Screen
+from backend.app.regression import compare
 
 from .figma_client import InvalidFigmaUrlError, parse_figma_url
 from .figma_import import import_and_analyze_figma
@@ -24,6 +25,7 @@ from .schemas import (
     FindingStatusRequest,
     ImportFigmaRequest,
     JobDto,
+    RegressionDto,
 )
 from .service import (
     DATA_DIR,
@@ -36,7 +38,7 @@ from .service import (
     public_image_path,
     rules_by_id,
 )
-from .store import SessionLocal, get_audit, init_db, list_audits, to_audit_dto
+from .store import SessionLocal, get_audit, init_db, list_audits, to_audit_dto, to_regression_dto
 
 app = FastAPI(title="DarkAudit API", version="1.1.0")
 app.add_middleware(
@@ -77,6 +79,46 @@ def dashboard_summary() -> DashboardSummaryDto:
     with SessionLocal() as session:
         audits = [to_audit_dto(session, audit, rules_by_id()) for audit in list_audits(session)]
         return DashboardSummaryDto(activeAuditId=audits[0].id if audits else None, audits=audits)
+
+
+@app.get("/api/v1/audits/{audit_id}/regression", response_model=RegressionDto)
+def get_regression(
+    audit_id: str,
+    from_version: int | None = Query(default=None, alias="from", ge=1),
+    to_version: int | None = Query(default=None, alias="to", ge=1),
+) -> RegressionDto:
+    with SessionLocal() as session:
+        try:
+            audit = get_audit(session, audit_id)
+        except KeyError:
+            raise HTTPException(404, "Audit not found")
+
+        done_versions = sorted(r.version for r in audit.runs if r.status == RunStatus.DONE)
+        if to_version is None:
+            if not done_versions:
+                raise HTTPException(409, "완료된 진단 회차가 없습니다.")
+            to_version = done_versions[-1]
+        if from_version is None:
+            earlier = [v for v in done_versions if v < to_version]
+            if not earlier:
+                raise HTTPException(409, "비교할 이전 회차가 없습니다. 재진단 후 다시 시도해주세요.")
+            from_version = earlier[-1]
+        if from_version not in done_versions or to_version not in done_versions:
+            raise HTTPException(404, "지정한 회차를 찾을 수 없거나 아직 완료되지 않았습니다.")
+
+        # compare() 는 Finding.status(RESOLVED/REGRESSED)를 갱신하는 부작용이 있다.
+        # 최신 두 회차 비교라면 분석 완료 시 이미 한 번 실행된 것과 동일한 결과를
+        # 재계산해 재기록할 뿐이라 안전하다(결정적). from/to 를 임의로 지정해 건너뛴
+        # 회차가 있는 경우에는 "지금까지 한 번이라도 해소된 적 있는지" 판정이 그
+        # 임의 비교 기준으로 다시 쓰인다 — 순차 비교와 다른 결과가 나올 수 있음을
+        # 알고 있어야 한다(문서 11절 범위 밖 edge case).
+        try:
+            report = compare(session, audit.id, from_version, to_version)
+            session.commit()
+        except ValueError as exc:
+            raise HTTPException(404, str(exc))
+
+        return to_regression_dto(session, report)
 
 
 @app.post("/api/v1/audits/{audit_id}/screens", response_model=AuditDto)

@@ -307,6 +307,71 @@ class ApiIntegrationTest(unittest.TestCase):
         self.assertEqual(findings["DA-04"]["element"], "Paid option")
         self.assertEqual(findings["DA-12"]["severity"], "HIGH")
 
+    def test_regression_endpoint_reports_resolved_finding_across_runs(self) -> None:
+        audit_id = self.client.post(
+            "/api/v1/audits",
+            json={"name": "회귀 비교 진단", "platform": "mobile-web"},
+        ).json()["id"]
+        image = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )
+
+        # 회차 없음/1개뿐일 때는 아직 비교할 게 없다.
+        empty = self.client.get(f"/api/v1/audits/{audit_id}/regression")
+        self.assertEqual(empty.status_code, 409, empty.text)
+
+        # v1: DetectingProvider 가 DA-12 하나를 찾는다.
+        self.client.post(
+            f"/api/v1/audits/{audit_id}/screens",
+            files={"files": ("option.png", image, "image/png")},
+            data={"screen_ids": "option", "flow_steps": "추가 보장 선택"},
+        )
+        with patch("backend.api.service.create_provider", return_value=DetectingProvider()):
+            job1 = self.client.post(f"/api/v1/audits/{audit_id}/analyze").json()
+        self.assertEqual(
+            self.client.get(f"/api/v1/analysis-jobs/{job1['jobId']}").json()["status"], "completed"
+        )
+
+        one_run = self.client.get(f"/api/v1/audits/{audit_id}/regression")
+        self.assertEqual(one_run.status_code, 409, one_run.text)
+
+        # v2: 문제를 고쳤다고 가정 — 아무것도 안 찾는 provider.
+        self.client.post(
+            f"/api/v1/audits/{audit_id}/screens",
+            files={"files": ("option.png", image, "image/png")},
+            data={"screen_ids": "option", "flow_steps": "추가 보장 선택"},
+        )
+        job2 = self.client.post(f"/api/v1/audits/{audit_id}/analyze").json()
+        self.assertEqual(
+            self.client.get(f"/api/v1/analysis-jobs/{job2['jobId']}").json()["status"], "completed"
+        )
+
+        regression = self.client.get(f"/api/v1/audits/{audit_id}/regression")
+        self.assertEqual(regression.status_code, 200, regression.text)
+        body = regression.json()
+        self.assertEqual(body["auditId"], audit_id)
+        self.assertEqual(body["fromVersion"], 1)
+        self.assertEqual(body["toVersion"], 2)
+        self.assertEqual(len(body["resolved"]), 1)
+        self.assertEqual(body["resolved"][0]["ruleId"], "DA-12")
+        self.assertEqual(body["resolved"][0]["before"], "REVIEW")
+        self.assertIsNone(body["resolved"][0]["after"])
+        self.assertEqual(body["new"], [])
+        self.assertEqual(body["resolvedRatio"], 1.0)
+
+        # 명시적 from/to 도 동작해야 한다 (v1 vs v1).
+        same = self.client.get(f"/api/v1/audits/{audit_id}/regression?from=1&to=1")
+        self.assertEqual(same.status_code, 200, same.text)
+        self.assertEqual(same.json()["resolved"], [])
+        self.assertEqual(same.json()["persisted"][0]["ruleId"], "DA-12")
+
+        missing_version = self.client.get(f"/api/v1/audits/{audit_id}/regression?from=1&to=99")
+        self.assertEqual(missing_version.status_code, 404, missing_version.text)
+
+    def test_regression_endpoint_missing_audit_returns_404(self) -> None:
+        response = self.client.get("/api/v1/audits/audit-999999/regression")
+        self.assertEqual(response.status_code, 404, response.text)
+
     def test_rejects_analysis_without_uploaded_screens(self) -> None:
         audit_id = self.client.post(
             "/api/v1/audits",
