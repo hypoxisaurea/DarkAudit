@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from ai.providers.openai_provider import OpenAIResponsesProvider
+from ai.providers.openai_provider import OpenAIResponsesProvider, _responses_schema
 from ai.schemas.audit_schema import AuditScreen, LLMAuditRequest
 
 
@@ -15,6 +15,22 @@ class FakeResponses:
 
 
 class OpenAIProviderTest(unittest.TestCase):
+    def test_removes_unsupported_conditional_schema_keywords(self):
+        schema = {
+            "type": "object",
+            "properties": {"kind": {"type": "string"}},
+            "allOf": [{"if": {"properties": {}}, "then": {"required": ["kind"]}}],
+        }
+        normalized = _responses_schema(schema)
+        self.assertNotIn("allOf", normalized)
+        self.assertEqual(normalized["properties"], schema["properties"])
+
+    def test_adds_type_to_const_only_schema(self):
+        self.assertEqual(
+            _responses_schema({"const": "1.1"}),
+            {"const": "1.1", "type": "string"},
+        )
+
     def test_builds_responses_api_image_payload(self):
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "screen.png"
@@ -27,6 +43,7 @@ class OpenAIProviderTest(unittest.TestCase):
             self.assertEqual(responses.kwargs["model"], "test-model")
             content = responses.kwargs["input"][0]["content"]
             self.assertTrue(any(item["type"] == "input_image" and item["image_url"].startswith("data:image/png;base64,") for item in content))
+            self.assertTrue(any("audit_id=audit" in item.get("text", "") for item in content))
             self.assertTrue(responses.kwargs["text"]["format"]["strict"])
 
 
