@@ -1,6 +1,6 @@
 """Strict request/response contract for the multimodal MVP baseline."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 import math
 from pathlib import Path
@@ -21,6 +21,11 @@ class RiskType(str, Enum):
 class Severity(str, Enum):
     REVIEW = "REVIEW"
     HIGH = "HIGH"
+
+
+class CandidateDecisionValue(str, Enum):
+    KEEP = "KEEP"
+    REJECT = "REJECT"
 
 
 RISK_RULE_MAP = {
@@ -44,6 +49,18 @@ BASE_SEVERITY_MAP = {
     RiskType.EMOTIONAL_LANGUAGE: Severity.REVIEW,
     RiskType.SEQUENTIAL_PRICE_DISCLOSURE: Severity.HIGH,
 }
+
+RULE_BASE_SEVERITY = {
+    "DA-03": Severity.HIGH,
+    "DA-04": Severity.HIGH,
+    "DA-07": Severity.HIGH,
+    "DA-12": Severity.REVIEW,
+    "DA-15": Severity.HIGH,
+}
+
+# New findings may only originate from rules with an explicitly agreed
+# semantic-only check. Candidate verification remains available for every rule.
+SEMANTIC_ONLY_RULE_IDS = frozenset({"DA-03", "DA-12"})
 
 NormalizedBBox = tuple[float, float, float, float]
 
@@ -96,6 +113,83 @@ class LLMAuditRequest:
         ids = [screen.screen_id for screen in self.screens]
         if len(ids) != len(set(ids)):
             raise ValueError("screen_id values must be unique")
+
+
+@dataclass(frozen=True, slots=True)
+class RuleCandidate:
+    candidate_id: str
+    rule_id: str
+    screen_id: str
+    screen_index: int
+    primary_element_id: str | None
+    triggered_checks: tuple[str, ...]
+    measurements: dict[str, Any]
+    related_element_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.candidate_id.strip() or not self.screen_id.strip():
+            raise ValueError("candidate_id and screen_id are required")
+        if self.rule_id not in RULE_BASE_SEVERITY:
+            raise ValueError(f"unsupported candidate rule_id: {self.rule_id}")
+        if isinstance(self.screen_index, bool) or not isinstance(self.screen_index, int) or self.screen_index < 1:
+            raise ValueError("screen_index must be a positive integer")
+        if self.primary_element_id is not None and not self.primary_element_id.strip():
+            raise ValueError("primary_element_id must be non-empty or null")
+        if not self.triggered_checks or any(not item.strip() for item in self.triggered_checks):
+            raise ValueError("triggered_checks must contain non-empty check ids")
+        if len(self.triggered_checks) != len(set(self.triggered_checks)):
+            raise ValueError("triggered_checks must be unique")
+        if not isinstance(self.measurements, dict):
+            raise ValueError("measurements must be an object")
+        if any(not item.strip() for item in self.related_element_ids):
+            raise ValueError("related_element_ids must be non-empty")
+        if len(self.related_element_ids) != len(set(self.related_element_ids)):
+            raise ValueError("related_element_ids must be unique")
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "RuleCandidate":
+        fields = {"candidate_id", "rule_id", "screen_id", "screen_index", "primary_element_id",
+                  "triggered_checks", "measurements", "related_element_ids"}
+        if not isinstance(value, dict) or set(value) != fields:
+            raise ValueError("invalid RuleCandidate fields")
+        if not isinstance(value["triggered_checks"], list) or not isinstance(value["measurements"], dict):
+            raise ValueError("invalid RuleCandidate checks or measurements")
+        if not isinstance(value["related_element_ids"], list):
+            raise ValueError("related_element_ids must be an array")
+        return cls(
+            value["candidate_id"], value["rule_id"], value["screen_id"], value["screen_index"],
+            value["primary_element_id"], tuple(value["triggered_checks"]),
+            dict(value["measurements"]), tuple(value["related_element_ids"]),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateDecision:
+    candidate_id: str
+    decision: CandidateDecisionValue
+    reason: str
+    confidence: float
+    base_severity: Severity
+
+    def __post_init__(self) -> None:
+        if not self.candidate_id.strip() or not self.reason.strip():
+            raise ValueError("candidate_id and decision reason are required")
+        if not isinstance(self.decision, CandidateDecisionValue):
+            raise ValueError("decision must be KEEP or REJECT")
+        if not isinstance(self.base_severity, Severity):
+            raise ValueError("base_severity must be a Severity")
+        if isinstance(self.confidence, bool) or not isinstance(self.confidence, (int, float)) or not math.isfinite(self.confidence) or not 0 <= self.confidence <= 1:
+            raise ValueError("confidence must be between 0 and 1")
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "CandidateDecision":
+        fields = {"candidate_id", "decision", "reason", "confidence", "base_severity"}
+        if not isinstance(value, dict) or set(value) != fields:
+            raise ValueError("invalid CandidateDecision fields")
+        return cls(
+            value["candidate_id"], CandidateDecisionValue(value["decision"]), value["reason"],
+            float(value["confidence"]), Severity(value["base_severity"]),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,3 +358,76 @@ class LLMAuditOutput:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class HybridAuditOutput:
+    audit_id: str
+    schema_version: str
+    screens: tuple[ScreenReference, ...]
+    candidate_decisions: tuple[CandidateDecision, ...]
+    semantic_findings: tuple[Detection, ...]
+    candidates: tuple[RuleCandidate, ...] = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if not self.audit_id.strip() or self.schema_version != SCHEMA_VERSION:
+            raise ValueError("invalid hybrid audit identity")
+        screen_ids = [screen.screen_id for screen in self.screens]
+        if not screen_ids or len(screen_ids) != len(set(screen_ids)):
+            raise ValueError("screen_id values must be present and unique")
+
+        candidate_ids = [candidate.candidate_id for candidate in self.candidates]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ValueError("candidate_id values must be unique")
+        if any(candidate.screen_id not in screen_ids for candidate in self.candidates):
+            raise ValueError("candidate references an unknown screen_id")
+
+        decision_ids = [decision.candidate_id for decision in self.candidate_decisions]
+        if len(decision_ids) != len(set(decision_ids)):
+            raise ValueError("duplicate candidate decision")
+        unknown = sorted(set(decision_ids) - set(candidate_ids))
+        if unknown:
+            raise ValueError(f"unknown candidate_id decisions: {', '.join(unknown)}")
+        missing = sorted(set(candidate_ids) - set(decision_ids))
+        if missing:
+            raise ValueError(f"missing candidate decisions: {', '.join(missing)}")
+
+        candidate_by_id = {candidate.candidate_id: candidate for candidate in self.candidates}
+        for decision in self.candidate_decisions:
+            rule_id = candidate_by_id[decision.candidate_id].rule_id
+            if decision.base_severity is not RULE_BASE_SEVERITY[rule_id]:
+                raise ValueError(f"base_severity does not match Rule Base for {rule_id}")
+        if any(finding.rule_id not in SEMANTIC_ONLY_RULE_IDS for finding in self.semantic_findings):
+            raise ValueError("semantic_findings may only contain semantic-only rules")
+        # Reuse the established detection-level screen, profile, and duplicate
+        # validation for semantic-only findings.
+        LLMAuditOutput(
+            self.audit_id, self.schema_version, self.screens, self.semantic_findings
+        ).to_dict()
+
+    @classmethod
+    def from_dict(
+        cls, value: dict[str, Any], candidates: list[RuleCandidate] | tuple[RuleCandidate, ...]
+    ) -> "HybridAuditOutput":
+        fields = {"audit_id", "schema_version", "screens", "candidate_decisions", "semantic_findings"}
+        if not isinstance(value, dict) or set(value) != fields:
+            raise ValueError("invalid HybridAuditOutput fields")
+        if not isinstance(value["candidate_decisions"], list) or not isinstance(value["semantic_findings"], list):
+            raise ValueError("hybrid output collections must be arrays")
+        return cls(
+            audit_id=value["audit_id"],
+            schema_version=value["schema_version"],
+            screens=tuple(ScreenReference(**screen) for screen in value["screens"]),
+            candidate_decisions=tuple(CandidateDecision.from_dict(item) for item in value["candidate_decisions"]),
+            semantic_findings=tuple(Detection.from_dict(item) for item in value["semantic_findings"]),
+            candidates=tuple(candidates),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "audit_id": self.audit_id,
+            "schema_version": self.schema_version,
+            "screens": [asdict(screen) for screen in self.screens],
+            "candidate_decisions": [asdict(decision) for decision in self.candidate_decisions],
+            "semantic_findings": [asdict(finding) for finding in self.semantic_findings],
+        }

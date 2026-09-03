@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rule_candidate.schema.json",
+  "title": "DarkAudit Rule Candidate v1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidate_id", "rule_id", "screen_id", "screen_index",
+    "primary_element_id", "triggered_checks", "measurements", "related_element_ids"
+  ],
+  "properties": {
+    "candidate_id": {"type": "string", "minLength": 1},
+    "rule_id": {"enum": ["DA-03", "DA-04", "DA-07", "DA-12", "DA-15"]},
+    "screen_id": {"type": "string", "minLength": 1},
+    "screen_index": {"type": "integer", "minimum": 1},
+    "primary_element_id": {"type": ["string", "null"], "minLength": 1},
+    "triggered_checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "measurements": {"type": "object"},
+    "related_element_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

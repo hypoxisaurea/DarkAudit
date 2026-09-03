@@ -1,0 +1,107 @@
+import json
+import unittest
+from pathlib import Path
+
+from ai.schemas.audit_schema import (
+    CandidateDecision,
+    CandidateDecisionValue,
+    HybridAuditOutput,
+    RuleCandidate,
+    SCHEMA_VERSION,
+    Severity,
+)
+
+
+def candidate(candidate_id="DA-04:screen-01:btn-1", rule_id="DA-04"):
+    return RuleCandidate(
+        candidate_id=candidate_id,
+        rule_id=rule_id,
+        screen_id="screen-01",
+        screen_index=1,
+        primary_element_id="btn-1",
+        triggered_checks=(f"{rule_id}.default_checked",),
+        measurements={"checked": True},
+        related_element_ids=(),
+    )
+
+
+def decision(candidate_id="DA-04:screen-01:btn-1", severity=Severity.HIGH):
+    return {
+        "candidate_id": candidate_id,
+        "decision": "KEEP",
+        "reason": "선택 가능한 옵션이 초기 상태에서 선택되어 있음",
+        "confidence": 0.91,
+        "base_severity": severity.value,
+    }
+
+
+def output(decisions):
+    return {
+        "audit_id": "audit-1",
+        "schema_version": SCHEMA_VERSION,
+        "screens": [{"screen_id": "screen-01", "flow_step": "mobile: option"}],
+        "candidate_decisions": decisions,
+        "semantic_findings": [],
+    }
+
+
+def da04_semantic_finding():
+    return {
+        "risk_type": "PRESELECTED_OPTION",
+        "risk_name": "특정옵션의 사전선택",
+        "where": {"screen_ids": ["screen-01"], "element": "선택 옵션", "location": "화면 중앙"},
+        "bbox": [0.1, 0.2, 0.2, 0.1],
+        "related_elements": [],
+        "what": "사전 선택",
+        "observation": "초기 상태에서 선택됨",
+        "rule_id": "DA-04",
+        "why": "소비자에게 불리한 기본값",
+        "severity": "HIGH",
+        "confidence": 0.9,
+        "fix": "미선택 상태로 변경",
+    }
+
+
+class HybridContractTest(unittest.TestCase):
+    def test_accepts_one_decision_for_every_candidate(self):
+        parsed = HybridAuditOutput.from_dict(output([decision()]), [candidate()])
+        self.assertEqual(parsed.candidate_decisions[0].decision, CandidateDecisionValue.KEEP)
+        self.assertNotIn("candidates", parsed.to_dict())
+
+    def test_rejects_duplicate_candidate_ids(self):
+        with self.assertRaisesRegex(ValueError, "candidate_id values must be unique"):
+            HybridAuditOutput.from_dict(output([decision()]), [candidate(), candidate()])
+
+    def test_rejects_missing_candidate_decision(self):
+        with self.assertRaisesRegex(ValueError, "missing candidate decisions"):
+            HybridAuditOutput.from_dict(output([]), [candidate()])
+
+    def test_rejects_unknown_candidate_decision(self):
+        with self.assertRaisesRegex(ValueError, "unknown candidate_id"):
+            HybridAuditOutput.from_dict(output([decision("unknown")]), [candidate()])
+
+    def test_rejects_duplicate_candidate_decisions(self):
+        with self.assertRaisesRegex(ValueError, "duplicate candidate decision"):
+            HybridAuditOutput.from_dict(output([decision(), decision()]), [candidate()])
+
+    def test_rejects_base_severity_different_from_rule_base(self):
+        with self.assertRaisesRegex(ValueError, "base_severity does not match"):
+            HybridAuditOutput.from_dict(output([decision(severity=Severity.REVIEW)]), [candidate()])
+
+    def test_rejects_new_finding_for_non_semantic_only_rule(self):
+        raw = output([decision()])
+        raw["semantic_findings"] = [da04_semantic_finding()]
+        with self.assertRaisesRegex(ValueError, "semantic-only rules"):
+            HybridAuditOutput.from_dict(raw, [candidate()])
+
+    def test_contract_schema_files_are_valid_json(self):
+        root = Path("ai/schemas")
+        candidate_schema = json.loads((root / "rule_candidate.schema.json").read_text(encoding="utf-8"))
+        output_schema = json.loads((root / "hybrid_audit_output.schema.json").read_text(encoding="utf-8"))
+        self.assertIn("candidate_id", candidate_schema["required"])
+        self.assertIn("candidate_decisions", output_schema["required"])
+        self.assertIn("semantic_findings", output_schema["required"])
+
+
+if __name__ == "__main__":
+    unittest.main()

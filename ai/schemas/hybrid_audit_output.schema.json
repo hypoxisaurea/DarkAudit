@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DarkAudit Hybrid Audit Output v1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_id", "schema_version", "screens", "candidate_decisions", "semantic_findings"
+  ],
+  "properties": {
+    "audit_id": {"type": "string", "minLength": 1},
+    "schema_version": {"const": "1.1"},
+    "screens": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {"$ref": "audit_output.schema.json#/$defs/screen"}
+    },
+    "candidate_decisions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/candidate_decision"}
+    },
+    "semantic_findings": {
+      "type": "array",
+      "items": {"$ref": "audit_output.schema.json#/$defs/detection"}
+    }
+  },
+  "$defs": {
+    "candidate_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "decision", "reason", "confidence", "base_severity"],
+      "properties": {
+        "candidate_id": {"type": "string", "minLength": 1},
+        "decision": {"enum": ["KEEP", "REJECT"]},
+        "reason": {"type": "string", "minLength": 1},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "base_severity": {"enum": ["REVIEW", "HIGH"]}
+      }
+    }
+  }
+}
