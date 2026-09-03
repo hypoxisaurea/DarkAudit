@@ -123,6 +123,14 @@ class HybridContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "base_severity does not match"):
             HybridAuditOutput.from_dict(output([decision(severity=Severity.REVIEW)]), [candidate()])
 
+    def test_accepts_da07_candidate_with_high_base_severity(self):
+        candidate_id = "DA-07:screen-01:disclosure"
+        parsed = HybridAuditOutput.from_dict(
+            output([decision(candidate_id, severity=Severity.HIGH)]),
+            [candidate(candidate_id, rule_id="DA-07", primary_element_id="disclosure")],
+        )
+        self.assertEqual(parsed.candidate_decisions[0].base_severity, Severity.HIGH)
+
     def test_rejects_new_finding_for_non_semantic_only_rule(self):
         raw = output([decision()])
         raw["semantic_findings"] = [da04_semantic_finding()]
@@ -133,9 +141,22 @@ class HybridContractTest(unittest.TestCase):
         root = Path("ai/schemas")
         candidate_schema = json.loads((root / "rule_candidate.schema.json").read_text(encoding="utf-8"))
         output_schema = json.loads((root / "hybrid_audit_output.schema.json").read_text(encoding="utf-8"))
+        provider_schema = json.loads((root / "audit_output.schema.json").read_text(encoding="utf-8"))
         self.assertIn("candidate_id", candidate_schema["required"])
         self.assertIn("candidate_decisions", output_schema["required"])
         self.assertIn("semantic_findings", output_schema["required"])
+        self.assertIn("DA-07", provider_schema["$defs"]["detection"]["properties"]["rule_id"]["enum"])
+        self.assertIn(
+            "HIDDEN_INFORMATION",
+            provider_schema["$defs"]["detection"]["properties"]["risk_type"]["enum"],
+        )
+
+    def test_da07_prompt_requires_material_information_and_interaction_evidence(self):
+        prompt = Path("ai/prompts/audit_v1.md").read_text(encoding="utf-8")
+        self.assertIn("DA-07", prompt)
+        self.assertIn("footer", prompt)
+        self.assertIn("interaction evidence", prompt)
+        self.assertIn("DA-07을 새 `semantic_findings`로 생성하지 않는다", prompt)
 
 
 if __name__ == "__main__":

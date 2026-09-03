@@ -8,6 +8,7 @@ from typing import Any
 from .metrics import bbox_iou, prf, precision_recall_f1
 
 _SCREEN_NUMBER = re.compile(r"(\d+)$")
+DEFAULT_EVALUATION_RULE_IDS = frozenset({"DA-03", "DA-04", "DA-07", "DA-12", "DA-15"})
 
 @dataclass(slots=True)
 class EvaluationResult:
@@ -61,9 +62,7 @@ class Evaluator:
                          rule_ids: set[str] | None = None) -> dict[str, Any]:
         if not 0 <= iou_threshold <= 1: raise ValueError("iou_threshold must be between 0 and 1")
         missing = sorted(case.flow_id for case in cases if case.flow_id not in predictions)
-        observed_rules = {x["rule_id"] for case in cases for x in case.labels} | {
-            x.get("rule_id") for entry in predictions.values() for x in entry["output"].get("detections", []) if x.get("rule_id")}
-        rules = sorted(observed_rules if rule_ids is None else rule_ids)
+        rules = sorted(DEFAULT_EVALUATION_RULE_IDS if rule_ids is None else rule_ids)
         counts = {rule: [0, 0, 0] for rule in rules}
         ious, location_hits, location_total = [], 0, 0
         for case in cases:

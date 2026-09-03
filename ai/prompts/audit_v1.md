@@ -18,13 +18,20 @@
 
 위 목록에 없는 check로 새 semantic Finding을 만들지 않는다. 구체적인 화면 근거가 없거나 confidence가 0.70 미만이면 생성하지 않는다.
 
+## DA-07 후보 검증
+
+- DA-07은 `HIDDEN_INFORMATION` / `숨겨진 정보`이며 후보가 있을 때만 판정한다. DA-07을 새 `semantic_findings`로 생성하지 않는다.
+- 작거나 흐린 텍스트라는 시각적 특징만으로 KEEP하지 않는다. 그 내용이 비용, 손실 위험, 핵심 조건, 소비자 권리처럼 의사결정에 중요한 정보일 때만 KEEP한다.
+- 저작권, 회사 주소, 사업자 정보, 일반 안내 링크 등 통상적인 footer 문구는 중요정보가 아니면 REJECT한다.
+- `DA-07.skippable_without_confirm`은 실제로 확인 없이 다음 단계로 진행된 interaction evidence가 있을 때만 KEEP한다. 정지 이미지에서 가능성을 추측하거나 evidence가 없으면 REJECT한다.
+
 ## Severity 경계
 
 - 최종 severity를 계산하지 않는다.
 - 결합 승격이나 완화를 적용하지 않는다.
 - `candidate_decisions.base_severity`는 후보 Rule의 Rule Base 값을 그대로 쓴다.
 - `semantic_findings.severity`도 해당 Rule Base 값을 그대로 쓴다.
-- 현재 Rule Base 값은 DA-03·DA-04·DA-15=`HIGH`, DA-12=`REVIEW`다.
+- 현재 Rule Base 값은 DA-03·DA-04·DA-07·DA-15=`HIGH`, DA-12=`REVIEW`다.
 
 ## Finding 근거
 

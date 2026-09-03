@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai.evaluation import DatasetCase, Evaluator
+from ai.evaluation import DEFAULT_EVALUATION_RULE_IDS, DatasetCase, Evaluator
 
 
 def detection(rule_id="DA-04", bbox=None):
@@ -41,7 +41,8 @@ class DatasetEvaluationTest(unittest.TestCase):
             }},
         }
         report = Evaluator().evaluate_dataset(
-            cases, predictions, input_usd_per_million=1, output_usd_per_million=2
+            cases, predictions, input_usd_per_million=1, output_usd_per_million=2,
+            rule_ids={"DA-04"},
         )
         self.assertEqual(report["micro"]["f1"], 1.0)
         self.assertEqual(report["macro"]["f1"], 1.0)
@@ -51,6 +52,12 @@ class DatasetEvaluationTest(unittest.TestCase):
         self.assertEqual(report["operations"]["average_response_time_seconds"], 2.0)
         self.assertAlmostEqual(report["operations"]["model_cost_usd_per_screen"], 0.0012)
         self.assertAlmostEqual(report["operations"]["schema_retry_rate"], 1 / 3)
+
+    def test_default_evaluation_scope_includes_da07(self):
+        self.assertEqual(
+            DEFAULT_EVALUATION_RULE_IDS,
+            frozenset({"DA-03", "DA-04", "DA-07", "DA-12", "DA-15"}),
+        )
 
     def test_loads_prediction_envelope(self):
         with tempfile.TemporaryDirectory() as directory:

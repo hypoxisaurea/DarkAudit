@@ -75,6 +75,15 @@ def da15(screen_ids):
     )
 
 
+def da07():
+    return detection(
+        risk_type="HIDDEN_INFORMATION",
+        risk_name="숨겨진 정보",
+        rule_id="DA-07",
+        severity="HIGH",
+    )
+
+
 class FakeProvider:
     def __init__(self, result):
         self.result, self.rules, self.candidates, self.output_schema = result, None, None, None
@@ -160,6 +169,12 @@ class AuditSchemaTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "same device profile"):
             LLMAuditOutput.from_dict(output([da15(["screen_01", "screen_02"])], cross_profile_screens))
 
+    def test_da07_risk_mapping_and_base_severity(self):
+        parsed = LLMAuditOutput.from_dict(output([da07()]))
+        self.assertEqual(parsed.detections[0].risk_type.value, "HIDDEN_INFORMATION")
+        self.assertEqual(parsed.detections[0].risk_name, "숨겨진 정보")
+        self.assertEqual(parsed.detections[0].severity.value, "HIGH")
+
     def test_baseline_passes_only_mvp_rules(self):
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "screen.png"
@@ -170,7 +185,10 @@ class AuditSchemaTest(unittest.TestCase):
             ))
             result = BaselineAuditPipeline(provider).analyze(request)
             self.assertEqual(result.audit_id, "audit_1")
-            self.assertEqual({rule["rule_id"] for rule in provider.rules}, {"DA-03", "DA-04", "DA-12", "DA-15"})
+            self.assertEqual(
+                {rule["rule_id"] for rule in provider.rules},
+                {"DA-03", "DA-04", "DA-07", "DA-12", "DA-15"},
+            )
             self.assertEqual(provider.candidates, [])
             properties = provider.output_schema["properties"]
             self.assertIn("candidate_decisions", properties)
