@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import type { AuditDto, AuditScreenDto, FindingDto } from "@/entities/audit/types";
 import { useDashboardSummary } from "@/features/audit-dashboard/useDashboardSummary";
+import { ScreenCanvas } from "@/features/finding-review/ScreenCanvas";
 import { useFindingStatus } from "@/features/finding-review/useFindingStatus";
 import { cn } from "@/lib/cn";
 
@@ -79,15 +80,16 @@ function FlowOverview({
   );
 }
 
-function ScreenPreview({ screen }: { screen: AuditScreenDto }) {
+function ScreenPreview({ screen, finding }: { screen: AuditScreenDto; finding?: FindingDto }) {
   return (
     <Card className="relative mt-4 min-h-[380px] overflow-hidden p-5">
       <h2 className="text-sm font-bold">화면 미리보기</h2>
       <div className="absolute inset-x-0 bottom-0 top-14 flex items-center justify-center overflow-auto bg-gradient-to-b from-white to-brand-50/60 p-5">
-        <img
+        <ScreenCanvas
           alt={`${screen.flowStep} 캡처 화면 미리보기`}
           className="max-h-full max-w-full rounded border border-border bg-white object-contain shadow-sm"
-          src={screen.imageUrl}
+          finding={finding}
+          screen={screen}
         />
       </div>
       <div className="absolute right-4 top-20 overflow-hidden rounded-control border border-border bg-white shadow-sm">
@@ -504,7 +506,7 @@ export function OverviewPage() {
             selectedScreenId={screen.id}
             onSelect={selectScreen}
           />
-          <ScreenPreview screen={screen} />
+          <ScreenPreview finding={finding} screen={screen} />
         </div>
         <FindingDetails
           finding={finding}

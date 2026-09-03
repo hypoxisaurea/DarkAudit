@@ -18,6 +18,14 @@ const findings: FindingDto[] = [
       "추가 비용이 발생하는 옵션의 기본 선택을 해제하고 사용자가 직접 선택하도록 변경하세요.",
     guideline:
       "2.1.1. (사전선택 금지) 금융회사는 소비자가 추가 비용이 발생하는 서비스를 이용하지 않도록 기본 설정해서는 안 됩니다.",
+    bbox: {
+      screenId: "screen-option",
+      x: 24,
+      y: 520,
+      width: 342,
+      height: 48,
+      coordinateSystem: "image",
+    },
   },
   {
     id: "finding-emotional-pressure",
@@ -32,6 +40,14 @@ const findings: FindingDto[] = [
     confidence: 0.81,
     recommendation: "이탈 선택을 중립적인 문구로 제공하고 혜택 상실을 과장하지 마세요.",
     guideline: "소비자의 의사결정을 심리적으로 압박하거나 불필요한 불안감을 조성해서는 안 됩니다.",
+    bbox: {
+      screenId: "screen-consent",
+      x: 24,
+      y: 680,
+      width: 342,
+      height: 64,
+      coordinateSystem: "image",
+    },
   },
   {
     id: "finding-sequential-pricing",
@@ -47,6 +63,28 @@ const findings: FindingDto[] = [
     confidence: 0.76,
     recommendation: "첫 가격 안내 시점부터 필수 비용과 선택 비용을 함께 표시하세요.",
     guideline: "소비자가 거래 초기부터 지불할 전체 가격을 명확히 인식할 수 있어야 합니다.",
+    bbox: {
+      screenId: "screen-review",
+      x: 24,
+      y: 760,
+      width: 200,
+      height: 40,
+      coordinateSystem: "image",
+    },
+    relatedElements: [
+      {
+        screenId: "screen-option",
+        description: "최초 안내 가격",
+        bbox: {
+          screenId: "screen-option",
+          x: 24,
+          y: 760,
+          width: 180,
+          height: 36,
+          coordinateSystem: "image",
+        },
+      },
+    ],
   },
 ];
 
@@ -73,6 +111,8 @@ export const dashboardFixture: DashboardSummaryDto = {
           flowStep: "옵션 선택",
           imageUrl: "/mock/option.png",
           findingCount: 1,
+          width: 390,
+          height: 844,
         },
         {
           id: "screen-consent",
@@ -80,6 +120,8 @@ export const dashboardFixture: DashboardSummaryDto = {
           flowStep: "동의",
           imageUrl: "/mock/consent.png",
           findingCount: 1,
+          width: 390,
+          height: 844,
         },
         {
           id: "screen-review",
@@ -87,6 +129,8 @@ export const dashboardFixture: DashboardSummaryDto = {
           flowStep: "최종 확인",
           imageUrl: "/mock/review.png",
           findingCount: 1,
+          width: 390,
+          height: 844,
         },
         {
           id: "screen-complete",
