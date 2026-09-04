@@ -1,10 +1,17 @@
 # Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
 .venv/
 venv/
 .env
 .env.local
+
+# Logs and caches
+*.log
+logs/
+.cache/
+cache/
 
 # Node
 node_modules/
@@ -13,7 +20,6 @@ build/
 
 # 생성물 — YAML 이 원본, JSON 은 빌드 산출물
 rules/dark_pattern_rules.json
-*.log
 
 # 데이터
 data/synthetic/screenshots/
